@@ -10,11 +10,11 @@ A LiveKit-style WebRTC wrapper built on top of mediasoup, providing a complete v
 
 ## Packages
 
-| Package | Description | Status |
-|---------|-------------|--------|
-| `@mediasoup-lib/client` | React client SDK with hooks and components | 🚧 In Development |
-| `@mediasoup-lib/server` | Mediasoup SFU server (Docker) | 🚧 In Development |
-| `@mediasoup-lib/shared` | Shared types and constants | ✅ Phase 1 Complete |
+| Package                 | Description                                | Status      |
+| ----------------------- | ------------------------------------------ | ----------- |
+| `@mediasoup-lib/client` | React client SDK with hooks and components | ✅ Complete |
+| `@mediasoup-lib/server` | Mediasoup SFU server (Docker)              | ✅ Complete |
+| `@mediasoup-lib/shared` | Shared types and constants                 | ✅ Complete |
 
 ## Quick Start
 
@@ -40,7 +40,13 @@ npm install @mediasoup-lib/client
 ```
 
 ```tsx
-import { RoomProvider, useRoom, useLocalParticipant, useTracks, TrackView } from '@mediasoup-lib/client';
+import {
+  RoomProvider,
+  useRoom,
+  useLocalParticipant,
+  useTracks,
+  TrackView,
+} from '@mediasoup-lib/client';
 
 function VideoRoom() {
   const room = useRoom();
@@ -49,14 +55,10 @@ function VideoRoom() {
 
   return (
     <div>
-      <button onClick={() => localParticipant.setCameraEnabled(true)}>
-        Enable Camera
-      </button>
-      <button onClick={() => localParticipant.setMicrophoneEnabled(true)}>
-        Enable Microphone
-      </button>
+      <button onClick={() => localParticipant.setCameraEnabled(true)}>Enable Camera</button>
+      <button onClick={() => localParticipant.setMicrophoneEnabled(true)}>Enable Microphone</button>
 
-      {tracks.map(track => (
+      {tracks.map((track) => (
         <TrackView key={track.sid} track={track} />
       ))}
     </div>
@@ -119,7 +121,7 @@ Get all tracks (local and remote).
 ```tsx
 const tracks = useTracks();
 
-tracks.map(track => <TrackView key={track.sid} track={track} />);
+tracks.map((track) => <TrackView key={track.sid} track={track} />);
 ```
 
 #### `useLocalParticipant()`
@@ -142,7 +144,7 @@ Get all participants in the room.
 ```tsx
 const participants = useParticipants();
 
-participants.map(p => <ParticipantView key={p.sid} participant={p} />);
+participants.map((p) => <ParticipantView key={p.sid} participant={p} />);
 ```
 
 #### `useDataChannel()`
@@ -204,7 +206,7 @@ import { AccessToken } from '@mediasoup-lib/server';
 const token = new AccessToken(API_KEY, API_SECRET, {
   identity: 'user-123',
   name: 'John Doe',
-  metadata: { role: 'host' }
+  metadata: { role: 'host' },
 });
 
 token.addGrant({
@@ -212,7 +214,7 @@ token.addGrant({
   roomJoin: true,
   canPublish: true,
   canSubscribe: true,
-  canPublishData: true
+  canPublishData: true,
 });
 
 const jwt = token.toJwt();
@@ -302,9 +304,24 @@ See [`plans/roadmap.md`](plans/roadmap.md) for the complete implementation roadm
 
 - ✅ Phase 1: Project Setup & Infrastructure
 - ✅ Phase 2: Shared Package (types and constants)
-- 🚧 Phase 3-8: Server Implementation
-- 🚧 Phase 9-14: Client Implementation
-- ⏳ Phase 15-20: Testing, Documentation, CI/CD
+- ✅ Phase 3: Server - Core SFU
+- ✅ Phase 4: Server - WebSocket Server
+- ✅ Phase 5: Server - Token Service
+- ✅ Phase 6: Server - Redis Integration
+- ✅ Phase 7: Server - Configuration & Logging
+- ✅ Phase 8: Server - Docker & Deployment
+- ✅ Phase 9: Client - Core Client
+- ✅ Phase 10: Client - Media Handling
+- ✅ Phase 11: Client - React Context
+- ✅ Phase 12: Client - React Hooks
+- ✅ Phase 13: Client - React Components
+- ✅ Phase 14: Client - Data Channels
+- ✅ Phase 15: Testing
+- 🚧 Phase 16: Documentation
+- ⏳ Phase 17: CI/CD
+- ⏳ Phase 18: Examples
+- ⏳ Phase 19: Performance & Optimization
+- ⏳ Phase 20: Security
 
 ## Contributing
 
@@ -322,6 +339,7 @@ MIT
 ## Acknowledgments
 
 Built with:
+
 - [mediasoup](https://mediasoup.org/) - WebRTC SFU library
 - [React](https://react.dev/) - UI library
 - [TypeScript](https://www.typescriptlang.org/) - Type safety
