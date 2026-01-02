@@ -20,6 +20,10 @@ export { MediaManager } from './media';
 export { AudioTrack } from './media/AudioTrack';
 export { VideoTrack } from './media/VideoTrack';
 
+// Export context
+export { RoomProvider, useRoomContext, useRoom, withRoom } from './context';
+export type { RoomContextValue, RoomProviderProps } from './context';
+
 // Export types (excluding conflicting ones)
 export type {
   RoomClientOptions,
