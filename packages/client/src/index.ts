@@ -51,3 +51,6 @@ export * from './hooks';
 
 // Export components (placeholder for Phase 13)
 export * from './components';
+
+// Export data (placeholder for Phase 14)
+export * from './data';
