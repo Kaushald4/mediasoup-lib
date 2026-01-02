@@ -53,6 +53,7 @@ export class RoomClient {
       // Send join message
       this.send({
         type: 'join',
+        room: this.options.room,
         token: this.options.token,
       });
 
@@ -365,7 +366,7 @@ export class RoomClient {
     this.emit('local-participant-joined', this.localParticipant);
 
     // Add existing participants
-    message.participants.forEach((info: ParticipantInfo) => {
+    message.otherParticipants.forEach((info: ParticipantInfo) => {
       const participant = new RemoteParticipantImpl(info);
       participant.setSubscribeCallback(
         async (sid: string, subscribed: boolean, options?: TrackSubscribeOptions) => {

@@ -14,6 +14,11 @@ export interface RoomClientOptions {
   url: string;
 
   /**
+   * Room name to join
+   */
+  room: string;
+
+  /**
    * Access token for authentication
    */
   token: string;

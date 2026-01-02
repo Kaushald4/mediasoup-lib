@@ -35,9 +35,9 @@ router.post('/token', (req: any, res: any) => {
 
     token.setValidity(24 * 60 * 60); // 24 hours
 
-    token.toJwt();
+    const jwt = token.toJwt();
 
-    return res.json({ token });
+    return res.json({ token: jwt });
   } catch (error) {
     console.error('Error generating token:', error);
     return res.status(500).json({ error: 'Failed to generate token' });
