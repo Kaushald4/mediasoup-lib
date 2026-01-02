@@ -15,6 +15,11 @@ export {
 export { ParticipantImpl, RemoteParticipantImpl } from './client/Participant';
 export { LocalParticipantImpl } from './client/LocalParticipant';
 
+// Export media classes
+export { MediaManager } from './media';
+export { AudioTrack } from './media/AudioTrack';
+export { VideoTrack } from './media/VideoTrack';
+
 // Export types (excluding conflicting ones)
 export type {
   RoomClientOptions,
