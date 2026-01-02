@@ -1,6 +1,15 @@
 /**
- * Core client for mediasoup-lib
+ * Client module exports
  */
 
-// Placeholder - client will be implemented in Phase 9
-export {};
+export { RoomClient } from './RoomClient';
+export { Track } from './Track';
+export { LocalTrack } from './LocalTrack';
+export { RemoteTrack } from './RemoteTrack';
+export {
+  TrackPublicationImpl,
+  LocalTrackPublicationImpl,
+  RemoteTrackPublicationImpl,
+} from './TrackPublication';
+export { ParticipantImpl, RemoteParticipantImpl } from './Participant';
+export { LocalParticipantImpl } from './LocalParticipant';

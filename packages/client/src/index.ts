@@ -1,17 +1,44 @@
 /**
- * @mediasoup-lib/client
- *
- * React client SDK for mediasoup-lib - LiveKit-style hooks and components
+ * Main entry point for mediasoup-lib client
  */
 
-// Hooks
+// Export client classes
+export { RoomClient } from './client';
+export { Track } from './client/Track';
+export { LocalTrack } from './client/LocalTrack';
+export { RemoteTrack } from './client/RemoteTrack';
+export {
+  TrackPublicationImpl,
+  LocalTrackPublicationImpl,
+  RemoteTrackPublicationImpl,
+} from './client/TrackPublication';
+export { ParticipantImpl, RemoteParticipantImpl } from './client/Participant';
+export { LocalParticipantImpl } from './client/LocalParticipant';
+
+// Export types (excluding conflicting ones)
+export type {
+  RoomClientOptions,
+  MediaTrackOptions,
+  TrackPublishOptions,
+  TrackSubscribeOptions,
+  DataChannelOptions,
+  RoomEvents,
+  ParticipantEvents,
+  LocalParticipantEvents,
+  TrackEvents,
+  LocalTrackEvents,
+  RemoteTrackEvents,
+  DataChannelEvents,
+  TrackPublication,
+  LocalTrackPublication,
+  RemoteTrackPublication,
+  Participant,
+  LocalParticipant,
+  RemoteParticipant,
+} from './types';
+
+// Export hooks (placeholder for Phase 12)
 export * from './hooks';
 
-// Components
+// Export components (placeholder for Phase 13)
 export * from './components';
-
-// Core client
-export * from './client';
-
-// Types
-export * from './types';
