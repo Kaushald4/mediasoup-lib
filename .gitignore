@@ -10,6 +10,8 @@ build/
 out/
 *.tsbuildinfo
 
+plans/
+
 # Environment variables
 .env
 .env.local

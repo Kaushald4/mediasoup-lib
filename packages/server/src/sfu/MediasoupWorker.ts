@@ -18,7 +18,6 @@ export class MediasoupWorker {
     this.worker = worker;
     this.rooms = new Map();
 
-    // Handle worker events
     this.worker.on('died', () => {
       console.error('Mediasoup worker died');
     });
@@ -28,7 +27,6 @@ export class MediasoupWorker {
    * Create a room
    */
   public async createRoom(options: RoomOptions): Promise<Room> {
-    // Create a router for this room
     const router = await this.worker.createRouter({
       mediaCodecs: [
         {

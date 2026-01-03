@@ -41,7 +41,7 @@ function App() {
     <div className="app">
       <header>
         <h1>Basic Room Example</h1>
-        <p>A simple video conferencing example using mediasoup-lib</p>
+        <p>A simple video conferencing example using pulsewave-client</p>
       </header>
       <main>
         {!showRoom ? (
@@ -65,7 +65,7 @@ function App() {
             <div className="instructions">
               <h3>Instructions</h3>
               <ol>
-                <li>Make sure the mediasoup-lib server is running on port 3000</li>
+                <li>Make sure the pulsewave-client server is running on port 3000</li>
                 <li>Generate an access token using the server's /token endpoint</li>
                 <li>Enter the room name and token above</li>
                 <li>Click "Join Room" to connect</li>

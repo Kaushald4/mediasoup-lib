@@ -1,7 +1,7 @@
 /**
  * WebSocketServer - WebSocket server for signaling
  *
- * Refactored to use the Command pattern with HandlerRegistry for better maintainability.
+ * Uses Command pattern with HandlerRegistry for better maintainability.
  */
 
 import { WebSocketServer as WSServer, WebSocket } from 'ws';

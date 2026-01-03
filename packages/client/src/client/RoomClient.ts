@@ -1,8 +1,8 @@
 /**
  * RoomClient - Main client class for connecting to a mediasoup room
  *
- * Refactored to follow Single Responsibility Principle.
- * RoomClient acts as a facade/coordinator, delegating to specialized controllers.
+ *
+ * Acts as a facade/coordinator, delegating to specialized controllers.
  */
 
 import type { RoomInfo, RtpCapabilities } from '@bytepulse/pulsewave-shared';
@@ -29,11 +29,6 @@ import {
   TrackController,
 } from './controllers';
 
-/**
- * RoomClient - Main client class for connecting to a mediasoup room
- *
- * Acts as a facade/coordinator, delegating to specialized controllers.
- */
 export class RoomClient {
   public readonly options: RoomClientOptions;
 

@@ -1,10 +1,10 @@
 # PulseWave
 
-A LiveKit-style WebRTC wrapper built on top of mediasoup, providing a complete video/audio conferencing solution with simple React hooks and a self-hosted server.
+A modern WebRTC conferencing solution built on top of mediasoup, providing a complete video/audio communication platform with simple React hooks and a self-hosted server.
 
 ## Overview
 
-- **Client SDK**: React library with simple hooks like `useRoom`, `useTracks`, `useLocalParticipant`
+- **Client SDK**: React library with intuitive hooks like `useRoom`, `useParticipants`, `useLocalParticipant`
 - **Server**: Self-hosted or Docker-deployable mediasoup SFU server
 - **Features**: Video/audio streaming, screen sharing, data channels, text chat
 

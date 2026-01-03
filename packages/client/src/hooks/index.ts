@@ -1,5 +1,5 @@
 /**
- * React hooks for mediasoup-lib client
+ * React hooks for pulsewave-client
  */
 
 export { useLocalParticipant } from './useLocalParticipant';

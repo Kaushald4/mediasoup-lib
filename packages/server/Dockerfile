@@ -17,10 +17,10 @@ COPY packages/server ./packages/server
 RUN pnpm install --frozen-lockfile
 
 # Build shared package
-RUN pnpm --filter @mediasoup-lib/shared build
+RUN pnpm --filter @pulsewave-client/shared build
 
 # Build server package
-RUN pnpm --filter @mediasoup-lib/server build
+RUN pnpm --filter @pulsewave-client/server build
 
 # Production stage
 FROM node:20-alpine

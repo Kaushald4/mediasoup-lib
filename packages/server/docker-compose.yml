@@ -2,11 +2,11 @@ version: '3.8'
 
 services:
   mediasoup:
-    image: mediasoup-lib/server:latest
+    image: pulsewave-client/server:latest
     container_name: mediasoup-server
     ports:
-      - "3000:3000"              # HTTP API
-      - "40000-50000:40000-50000/udp"  # Media ports (UDP)
+      - '3000:3000' # HTTP API
+      - '40000-50000:40000-50000/udp' # Media ports (UDP)
     environment:
       # Server
       - PORT=3000
@@ -37,7 +37,7 @@ services:
     networks:
       - mediasoup-network
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:3000/health']
       interval: 30s
       timeout: 10s
       retries: 3
@@ -47,7 +47,7 @@ services:
     image: redis:7-alpine
     container_name: mediasoup-redis
     ports:
-      - "6379:6379"
+      - '6379:6379'
     volumes:
       - redis-data:/data
     command: redis-server --appendonly yes
@@ -55,7 +55,7 @@ services:
     networks:
       - mediasoup-network
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ['CMD', 'redis-cli', 'ping']
       interval: 10s
       timeout: 5s
       retries: 3

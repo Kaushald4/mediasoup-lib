@@ -1,5 +1,5 @@
 /**
- * React components for mediasoup-lib client
+ * React components for pulsewave-client client
  */
 
 export { VideoTrack } from './VideoTrack';

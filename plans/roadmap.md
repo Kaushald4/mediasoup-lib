@@ -1,4 +1,4 @@
-# Implementation Roadmap (LiveKit-style)
+# Implementation Roadmap
 
 ## Phase 1: Project Setup & Infrastructure
 
@@ -569,14 +569,15 @@
 
 ### Client SDK
 
-- **npm**: `@mediasoup-lib/client`
-- **Install**: `npm install @mediasoup-lib/client`
+- **npm**: `@bytepulse/pulsewave-client`
+- **Install**: `npm install @bytepulse/pulsewave-client`
 
 ### Server Docker Image
 
-- **Docker Hub**: `mediasoup-lib/server`
-- **Pull**: `docker pull mediasoup-lib/server:latest`
+- **Docker Hub**: `bytepulse/pulsewave-server`
+- **Pull**: `docker pull bytepulse/pulsewave-server:latest`
 
 ### Shared Package
 
+- **npm**: `@bytepulse/pulsewave-shared`
 - Internal use only (not published)

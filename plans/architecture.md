@@ -1,8 +1,8 @@
-# Mediasoup Wrapper - Scalable Architecture (LiveKit-style)
+# PulseWave - Scalable WebRTC Architecture
 
 ## Overview
 
-This project provides a complete WebRTC solution built on top of mediasoup, following a LiveKit-style architecture:
+PulseWave provides a complete WebRTC solution built on top of mediasoup with a modern, production-ready architecture:
 
 - **Server**: Self-hosted or Docker-deployable mediasoup SFU server
 - **Client SDK**: React library with Provider pattern and simple hooks like `useRoom`, `useTracks`, `useLocalParticipant`
@@ -139,7 +139,7 @@ mediasoup-lib/
 └── tsconfig.base.json
 ```
 
-## Client SDK API (LiveKit-style)
+## Client SDK API
 
 ### RoomProvider - Main Entry Point
 
@@ -379,16 +379,16 @@ classDiagram
 ### Server-side Token Generation
 
 ```typescript
-import { AccessToken } from "@mediasoup-lib/server";
+import { AccessToken } from '@mediasoup-lib/server';
 
 const token = new AccessToken(API_KEY, API_SECRET, {
-  identity: "user-123",
-  name: "John Doe",
-  metadata: { role: "host" },
+  identity: 'user-123',
+  name: 'John Doe',
+  metadata: { role: 'host' },
 });
 
 token.addGrant({
-  room: "room-name",
+  room: 'room-name',
   roomJoin: true,
   canPublish: true,
   canSubscribe: true,
@@ -438,16 +438,16 @@ stateDiagram-v2
 
 ```typescript
 enum TrackKind {
-  Audio = "audio",
-  Video = "video",
+  Audio = 'audio',
+  Video = 'video',
 }
 
 enum TrackSource {
-  Camera = "camera",
-  Microphone = "microphone",
-  ScreenShare = "screen_share",
-  ScreenShareAudio = "screen_share_audio",
-  Unknown = "unknown",
+  Camera = 'camera',
+  Microphone = 'microphone',
+  ScreenShare = 'screen_share',
+  ScreenShareAudio = 'screen_share_audio',
+  Unknown = 'unknown',
 }
 
 interface Track {
@@ -508,16 +508,16 @@ graph LR
 ### docker-compose.yml
 
 ```yaml
-version: "3.8"
+version: '3.8'
 
 services:
   mediasoup:
     image: mediasoup-lib/server:latest
     ports:
-      - "3000:3000" # HTTP API
-      - "40000:40000/udp" # Media ports
-      - "40001:40001/udp"
-      - "40002:40002/udp"
+      - '3000:3000' # HTTP API
+      - '40000:40000/udp' # Media ports
+      - '40001:40001/udp'
+      - '40002:40002/udp'
     environment:
       - MEDIASOUP_MIN_PORT=40000
       - MEDIASOUP_MAX_PORT=50000
@@ -533,7 +533,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - '6379:6379'
     volumes:
       - redis-data:/data
     restart: unless-stopped
@@ -557,7 +557,7 @@ interface ServerConfig {
     numWorkers: number;
     rtcMinPort: number;
     rtcMaxPort: number;
-    logLevel: "debug" | "warn" | "error";
+    logLevel: 'debug' | 'warn' | 'error';
   };
 
   // Redis

@@ -1,5 +1,5 @@
 /**
- * Main entry point for mediasoup-lib client
+ * Main entry point for pulsewave-client client
  */
 
 // Export client classes

@@ -1,7 +1,7 @@
 /**
  * @bytepulse/pulsewave-shared
  *
- * Shared types and constants for mediasoup-lib
+ * Shared types and constants for pulsewave-client
  */
 
 // Types
