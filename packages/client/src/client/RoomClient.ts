@@ -188,6 +188,10 @@ export class RoomClient {
 
     if (this.localVideoProducer) {
       await this.webRTCManager?.unpublishTrack(this.localVideoProducer.id);
+      // Remove the publication from local participant's tracks map
+      if (this.localParticipant) {
+        (this.localParticipant as any).tracks.delete(this.localVideoProducer.id);
+      }
       this.localVideoProducer = null;
     }
 
@@ -263,6 +267,10 @@ export class RoomClient {
 
     if (this.localAudioProducer) {
       await this.webRTCManager?.unpublishTrack(this.localAudioProducer.id);
+      // Remove the publication from local participant's tracks map
+      if (this.localParticipant) {
+        (this.localParticipant as any).tracks.delete(this.localAudioProducer.id);
+      }
       this.localAudioProducer = null;
     }
 

@@ -15,8 +15,10 @@ function App() {
     token: '',
   });
   const [showRoom, setShowRoom] = useState(false);
-  const [token, setToken] = useState('');
-  const [roomName, setRoomName] = useState('');
+  const [token, setToken] = useState(
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZGVudGl0eSI6InVzZXIxMjQ1NiIsInZpZGVvIjp7InJvb20iOiJteS1yb29tIiwicm9vbUpvaW4iOnRydWUsImNhblB1Ymxpc2giOnRydWUsImNhblN1YnNjcmliZSI6dHJ1ZSwiY2FuUHVibGlzaERhdGEiOnRydWV9LCJuYW1lIjoiSm9obiIsIm5iZiI6MTc2NzQyMTExNiwiZXhwIjoxNzY3NTA3NTE2LCJpc3MiOiJ5b3VyLWFwaS1rZXkiLCJzdWIiOiJ1c2VyMTI0NTYiLCJqdGkiOiIxNzY3NDIxMTE2MzYxLXpzZWVzNTcydndnIiwiaWF0IjoxNzY3NDIxMTE2fQ.Nrvkl3KLYXWr_0VXfqZR1KFwWF7hA4BJM0CXo3H0pqA'
+  );
+  const [roomName, setRoomName] = useState('my-room');
 
   const handleJoin = () => {
     if (token && roomName) {
