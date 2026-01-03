@@ -1,0 +1,1302 @@
+mediasoup
+/ home / Documentation / v3 / mediasoup-client / API
+mediasoup-client v3 API
+mediasoupClient
+The top-level exported module.
+
+// Using ES6 import.
+import * as mediasoupClient from "mediasoup-client";
+
+// Or using destructuring assignment:
+import {
+  types,
+  version,
+  Device,
+  detectDevice,
+  detectDeviceAsync,
+  parseScalabilityMode,
+  debug
+} from "mediasoup-client";
+
+// Using CommonJS.
+const mediasoupClient = require("mediasoup-client");
+
+// Or using destructuring assignment:
+const {
+  types,
+  version,
+  Device,
+  detectDevice,
+  detectDeviceAsync,
+  parseScalabilityMode,
+  debug
+} = require("mediasoup-client");
+Properties
+mediasoupClient.types
+An Object holding all classes and TypeScript types exported by mediasoup-client.
+
+@type Object, read only
+
+import { types as mediasoupTypes } from "mediasoup-client";
+
+let producer: mediasoupTypes.Producer;
+let rtpParameters: mediasoupTypes.RtpParameters;
+
+// or alternatively:
+
+import { Producer, RtpParameters } from "mediasoup-client/types";
+
+let producer: Producer;
+let rtpParameters: RtpParameters;
+mediasoupClient.version
+The mediasoup-client version.
+
+@type String, read only
+
+console.log(mediasoupClient.version);
+// => "3.0.0"
+mediasoupClient.debug
+Exposes the debug dependency used by mediasoup-client. Useful if you need to enable/disable debug namespaces programatically.
+
+Classes
+mediasoupClient.Device
+The main Device class.
+
+@type Device, read only
+
+const device = new mediasoupClient.Device();
+Functions
+mediasoupClient.detectDevice(userAgent, userAgentData)
+Performs current browser/device detection and returns the corresponding mediasoup-client WebRTC handler name (or nothing if the browser/device is not supported).
+
+Argument	Type	Description	Required	Default
+userAgent	String	Optional browser User-Agent string. If not given, navigator.userAgent will be used (in case of browser).	No	 
+userAgentData	NavigatorUAData	Optional data obtained via navigator.userAgentData() in browsers supporting it.	No	 
+@deprecated
+
+@returns BuiltinHandlerName | undefined
+
+const handlerName = mediasoupClient.detectDevice();
+
+if (handlerName) {
+  console.log("detected handler: %s", handlerName);
+} else {
+  console.warn("no suitable handler found for current browser/device");
+}
+This function is deprecated. Use detectDeviceAsync() instead.
+
+mediasoupClient.detectDeviceAsync(userAgent)
+Performs current browser/device detection and returns the corresponding mediasoup-client WebRTC handler name (or nothing if the browser/device is not supported).
+
+Argument	Type	Description	Required	Default
+userAgent	String	Optional browser User-Agent string. If not given, navigator.userAgent will be used (in case of browser).	No	 
+userAgentData	NavigatorUAData	Optional data obtained via navigator.userAgentData() in browsers supporting it.	No	 
+@async
+
+@returns BuiltinHandlerName | undefined
+
+const handlerName = await mediasoupClient.detectDeviceAsync();
+
+if (handlerName) {
+  console.log("detected handler: %s", handlerName);
+} else {
+  console.warn("no suitable handler found for current browser/device");
+}
+Compared to detectDevice(), detectDeviceAsync() doesn't provide with any benefit nowadays, but its async nature may allow more accurate checks in the future.
+
+mediasoupClient.parseScalabilityMode(scalabilityMode)
+Parses the given scalabilityMode string according to the rules in webrtc-svc.
+
+Argument	Type	Description	Required	Default
+scalabilityMode	String	Scalability mode.	No	 
+@returns Object:
+
+spatialLayers {@type Number} Number of spatial layers (by default 1).
+
+temporalLayers {@type Number} Number of temporal layers (by default 1).
+
+mediasoupClient.parseScalabilityMode("L2T3");
+// => { spatialLayers: 2, temporalLayers: 3 }
+
+mediasoupClient.parseScalabilityMode("S3T3");
+// => { spatialLayers: 3, temporalLayers: 3 }
+
+mediasoupClient.parseScalabilityMode("L4T7_KEY_SHIFT");
+// => { spatialLayers: 4, temporalLayers: 7 }
+
+mediasoupClient.parseScalabilityMode(undefined);
+// => { spatialLayers: 1, temporalLayers: 1 }
+Device
+A device represents an endpoint that connects to a mediasoup Router to send and/or receive media.
+
+This is the entry point for JavaScript client side applications (such as web applications).
+If you are developing a React Native app, take a look to the React Native section.
+Dictionaries
+DeviceOptions
+Field	Type	Description	Required	Default
+handlerName	BuiltinHandlerName	The name of one of the builtin handlers.	No	 
+handlerFactory	Function	A function that returns an instance of a handler. Check the HandlerInterface parent class from which any valid handler must inherit.	No	 
+Web applications do not need to provide any handlerName or handlerFactory arguments into the Device constructor. mediasoup-client detects the underlying browser and chooses a suitable WebRTC handler depending on the browser vendor and version.
+
+If the web application wishes to force a specific built-in handler (for example, force Chrome67 built-in handler in Chrome >= 70 instead of having Chrome70 auto-detected) the application can do it as follows:
+
+const device = new mediasoupClient.Device({ handlerName: "Chrome67" });
+DeviceSctpCapabilities
+Field	Type	Description
+numStreams	NumSctpStreams	Initially requested and supported SCTP streams.
+Enums
+BuiltinHandlerName
+Value	Description
+“Chrome111”	Chrome/Chromium >= 111.
+“Chrome74”	Chrome/Chromium >= 74.
+“Firefox120”	Firefox >= 120.
+“Safari12”	Safari >= 12.
+“ReactNative106”	React-Native environment with react-native-webrtc >= 106.0.0.
+Class functions
+Device.factory(options)
+Creates a new device. Currently, using Device.factory() instead of the Device constructor provides no benefit.
+
+Argument	Type	Description	Required	Default
+options	DeviceOptions	Device options.	No	 
+@async
+
+@returns Device
+
+@throws UnsupportedError, if the current browser/device is not supported.
+
+let device;
+
+try
+{
+  device = await Device.factory();
+}
+catch (error)
+{
+  if (error.name === 'UnsupportedError')
+    console.warn('browser not supported');
+}
+Constructor
+new Device(options)
+Creates a new device.
+
+Argument	Type	Description	Required	Default
+options	DeviceOptions	Device options.	No	 
+@deprecated
+
+@throws UnsupportedError, if the current browser/device is not supported.
+
+let device;
+
+try
+{
+  device = new mediasoupClient.Device();
+}
+catch (error)
+{
+  if (error.name === 'UnsupportedError')
+    console.warn('browser not supported');
+}
+Using the Device constructor directly is deprecated. Use Device.factory() instead.
+
+Properties
+device.handlerName
+The selected handler class name.
+
+@returns String, read only
+
+console.log(device.handlerName);
+// => "Chrome74"
+device.loaded
+Whether the device has been loaded (see the load() method).
+
+@returns Boolean
+
+device.rtpCapabilities
+The device RTP capabilities, generated by combining both the underlying WebRTC capabilities and the router RTP capabilities (see the load() method).
+
+@returns RtpCapabilities, read only
+
+@throws InvalidStateError, if device not loaded
+
+These RTP capabilities must be given to the mediasoup router in order to consume a remote stream. Check the Communication Between Client and Server section for more details.
+
+device.sctpCapabilities
+The device SCTP capabilities.
+
+@returns DeviceSctpCapabilities, read only
+
+@throws InvalidStateError, if device not loaded
+
+device.observer
+See the Observer Events section below.
+
+@type EventEmitter, read only
+
+Methods
+device.load({ routerRtpCapabilities, preferLocalCodecsOrder })
+Loads the device with the RTP capabilities of the mediasoup router. This is how the device knows about the allowed media codecs and other settings.
+
+Argument	Type	Description	Required	Default
+routerRtpCapabilities	RtpCapabilities	The mediasoup router RTP capabilities.	Yes	 
+preferLocalCodecsOrder	Boolean	Whether to prefer device's local order of codecs rather than the order of codecs provided to mediasoup server.	No	 
+@async
+
+@throws InvalidStateError, if device already loaded
+
+@throws TypeError, if invalid arguments
+
+The router RTP capabilities are exposed via the router.rtpCapabilities getter. Check the Communication Between Client and Server section for more details.
+
+See also how to filter those server-side capabilities before applying them to the mediasoup-client device.
+
+await device.load({ routerRtpCapabilities });
+// Now the device is ready.
+device.canProduce(kind)
+Whether the device can produce media of the given kind. This depends on the media codecs enabled in the mediasoup router and the media capabilities of the browser/device.
+
+Argument	Type	Description	Required	Default
+kind	String	MediaKind	Yes	 
+@returns Boolean
+
+@throws InvalidStateError, if device not loaded
+
+@throws TypeError, if invalid kind
+
+if (device.canProduce("video"))
+{
+  // Do getUserMedia() and produce video.
+}
+device.createSendTransport(options)
+Creates a new WebRTC transport to send media. The transport must be previously created in the mediasoup router via router.createWebRtcTransport().
+
+Argument	Type	Description	Required	Default
+options	TransportOptions	WebRTC transport options.	Yes	 
+@returns Transport
+
+@throws InvalidStateError, if device not loaded
+
+@throws TypeError, if invalid arguments
+
+mediasoup server side WebRTC transports have DTLS role “auto” by default. mediasoup-client selects “client” DTLS role by default for both sending and receiving transports. However local DTLS role can be forced by overriding remote dtlsParameters.role value with “client” to force the local DTLS role “server”.
+
+const transport = device.createSendTransport(
+  {
+    id             : "0b38d662-ea00-4c70-9ae3-b675d6a89e09",
+    iceParameters  : { ... },
+    iceCandidates  : [ ... ],
+    dtlsParameters : { ... },
+    sctpParameters : { ... }
+  });
+device.createRecvTransport(options)
+Creates a new WebRTC transport to receive media. The transport must be previously created in the mediasoup router via router.createWebRtcTransport().
+
+Argument	Type	Description	Required	Default
+options	TransportOptions	WebRTC transport options.	Yes	 
+@returns Transport
+
+@throws InvalidStateError, if device not loaded
+
+@throws TypeError, if invalid arguments
+
+mediasoup server side WebRTC transports have DTLS role “auto” by default. mediasoup-client selects “client” DTLS role by default for both sending and receiving transports. However local DTLS role can be forced by overriding remote dtlsParameters.role value with “client” to force the local DTLS role “server”.
+
+const transport = device.createRecvTransport(
+  {
+    id             : "152f60cd-10ac-443b-8529-6474ecba2e44",
+    iceParameters  : { ... },
+    iceCandidates  : [ ... ],
+    dtlsParameters : { ... },
+    sctpParameters : { ... }
+  });
+Observer Events
+See the Observer API section below.
+
+device.observer.on(“newtransport”, fn(transport))
+Emitted when a new transport is created.
+
+Argument	Type	Description
+transport	Transport	New transport.
+device.observer.on("newtransport", (transport) =>
+{
+  console.log("new transport created [id:%s]", transport.id);
+});
+Transport
+A Transport instance in mediasoup-client represents the local side of a WebRtcTransport in mediasoup server. It connects a mediasoup-client Device with a mediasoup Router at media level and enables the sending of media (by means of Producer instances) or the receiving of media (by means of Consumer instances).
+
+Internally, the transport holds a WebRTC RTCPeerConnection instance.
+
+Dictionaries
+TransportOptions
+Field	Type	Description	Required	Default
+id	String	The identifier of the server side transport.	Yes	 
+iceParameters	IceParameters	ICE parameters of the server side transport.	Yes	 
+iceCandidates	Array<IceCandidate>	ICE candidates of the server side transport.	Yes	 
+dtlsParameters	DtlsParameters	DTLS parameters of the server side transport.	Yes	 
+sctpParameters	SctpParameters	SCTP parameters of the server side transport.	No	 
+iceServers	Array<RTCIceServer>	List of TURN servers. This setting is given to the local peerconnection.	No	[ ]
+iceTransportPolicy	RTCIceTransportPolicy	ICE candidate policy for the local peerconnection.	No	“all”
+additionalSettings	Object	Additional RTCConfiguration settings other than iceServers, iceTransportPolicy, bundlePolicy, rtcpMuxPolic and sdpSemantics. Use it to enable experimental settings.	 	 
+proprietaryConstraints	Object	Browser vendor's proprietary constraints used as second argument in the peerconnection constructor (deprecated in the WebRTC 1.0 API).	No	 
+appData	Object	Custom application data.	No	{ }
+TransportProduceParameters
+Argument	Type	Description
+kind	MediaKind	Producer's media kind (“audio” or “video”).
+rtpParameters	RtpSendParameters	Producer's RTP parameters.
+appData	Object	Custom application data as given in the transport.produce() method.
+TransportProduceDataParameters
+Argument	Type	Description
+sctpStreamParameters	SctpStreamParameters	Data producer's SCTP stream parameters.
+label	String	DataChannel label.
+protocol	String	DataChannel protocol.
+appData	Object	Custom application data as given in the transport.produceData() method.
+Properties
+transport.id
+Transport identifier. It matches the id of the server side transport.
+
+@type String, read only
+
+transport.closed
+Whether the transport is closed.
+
+@type Boolean, read only
+
+transport.direction
+The direction of this transport. “send” means that this is a WebRTC transport for sending media. “recv” means that this is a WebRTC transport for receiving media.
+
+@type String, read only
+
+transport.iceGatheringState
+The current ICE gathering state of the local peerconnection.
+
+@type RTCIceGatheringState, read only
+
+transport.connectionState
+The current connection state of the local peerconnection.
+
+@type RTCPeerConnectionState, read only
+
+transport.appData
+Custom data Object provided by the application in the transport constructor. The app can modify its content at any time.
+
+@type Object
+
+transport.appData.foo = "bar";
+transport.observer
+See the Observer Events section below.
+
+@type EventEmitter, read only
+
+Methods
+transport.close()
+Closes the transport, including all its producers and consumers.
+
+This method should be called when the server side transport has been closed (and vice-versa).
+
+transport.getStats()
+Gets the local transport statistics by calling getStats() in the underlying RTCPeerConnection instance.
+
+@async
+
+@returns RTCStatsReport
+
+transport.restartIce({ iceParameters })
+Instructs the underlying peerconnection to restart ICE by providing it with new remote ICE parameters.
+
+Argument	Type	Description	Required	Default
+iceParameters	IceParameters	New ICE parameters of the server side transport.	Yes	 
+@async
+
+This method must be called after restarting ICE in server side via webRtcTransport.restartIce().
+
+await transport.restartIce({ iceParameters: { ... } });
+transport.updateIceServers({ iceServers })
+Provides the underlying peerconnection with a new list of TURN servers.
+
+Argument	Type	Description	Required	Default
+iceServers	Array<RTCIceServer>	List of TURN servers to provide the local peerconnection with.	No	[ ]
+@async
+
+This method is specially useful if the TURN server credentials have changed.
+
+await transport.updateIceServers({ iceServers: [ ... ] });
+transport.produce(options)
+Instructs the transport to send an audio or video track to the mediasoup router.
+
+Argument	Type	Description	Required	Default
+options	ProducerOptions	Producer options.	Yes	 
+@async
+
+@returns Producer
+
+// Send webcam video with 3 simulcast streams.
+const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+const videoTrack = stream.getVideoTracks()[0];
+const producer = await transport.produce(
+  {
+    track       : videoTrack,
+    encodings   :
+    [
+      { maxBitrate: 100000 },
+      { maxBitrate: 300000 },
+      { maxBitrate: 900000 }
+    ],
+    codecOptions :
+    {
+      videoGoogleStartBitrate : 1000
+    }
+  });
+Before this method completes, the local transport will emit the “produce” event. The application must be subscribed to this event, signal those parameters to the server, and invoke transport.produce() on the corresponding WebRTC transport.
+
+Check the Communication Between Client and Server section for more details.
+
+transport.consume(options)
+Instructs the transport to receive an audio or video track from the mediasoup router.
+
+Argument	Type	Description	Required	Default
+options	ConsumerOptions	Consumer options.	Yes	 
+@async
+
+@returns Consumer
+
+// Let's assume we have created a video consumer in server side and signal its
+// parameters to the client app.
+mySignaling.on('newConsumer', async (data) =>
+{
+  const consumer = await transport.consume(
+    {
+      id            : data.id,
+      producerId    : data.producerId,
+      kind          : data.kind,
+      rtpParameters : data.rtpParameters
+    });
+
+  // Render the remote video track into a HTML video element.
+  const { track } = consumer;
+
+  videoElem.srcObject = new MediaStream([ track ]);
+});
+The consumer is created in server side first via transport.consume(). Then its parameters are signaled to the client application which creates a local replica of the consumer and manages it.
+
+Check the Communication Between Client and Server section for more details.
+
+transport.produceData(options)
+Instructs the transport to send data via DataChannel to the mediasoup router.
+
+Argument	Type	Description	Required	Default
+options	DataProducerOptions	DataProducer options.	No	 
+@async
+
+@returns DataProducer
+
+const producer = await transport.produceData();
+Before this method completes, the local transport will emit the “produceData” event. The application must be subscribed to this event, signal those parameters to the server, and invoke transport.produceData() on the corresponding WebRTC transport.
+
+Check the Communication Between Client and Server section for more details.
+
+transport.consumeData(options)
+Instructs the transport to receive data via DataChannel from the mediasoup router.
+
+Argument	Type	Description	Required	Default
+options	DataConsumerOptions	Data Consumer options.	Yes	 
+@async
+
+@returns DataConsumer
+
+// Let's assume we have created a data consumer in server side and signal its
+// parameters to the client app.
+mySignaling.on('newDataConsumer', async (data) =>
+{
+  const consumer = await transport.consumeData(
+    {
+      id                   : data.id,
+      producerId           : data.producerId,
+      sctpStreamParameters : data.sctpStreamParameters
+      label                : data.label
+      protocol             : data.protocol
+    });
+});
+The data consumer is created in server side first via transport.consumeData(). Then its parameters are signaled to the client application which creates a local replica of the data consumer and manages it.
+
+Check the Communication Between Client and Server section for more details.
+
+Events
+transport.on(“connect”, fn({ dtlsParameters }, callback(), errback(error))
+Emitted when the transport is about to establish the ICE+DTLS connection and needs to exchange information with the associated server side transport.
+
+Argument	Type	Description
+dtlsParameters	DtlsParameters	Local DTLS parameters.
+callback	Function	A function that must be called by the application once the parameters have been transmitted to the associated server side transport.
+errback	Function	A function that must be called by the application (with the corresponding error) if the tranmission of parameters to the associated server side transport failed for any reason.
+In server side, the application should call webRtcTransport.connect().
+
+transport.on("connect", async ({ dtlsParameters }, callback, errback) =>
+{
+  // Signal local DTLS parameters to the server side transport.
+  try
+  {
+    await mySignaling.send(
+      "transport-connect",
+      {
+        transportId    : transport.id, 
+        dtlsParameters : dtlsParameters
+      });
+
+    // Tell the transport that parameters were transmitted.
+    callback();
+  }
+  catch (error)
+  {
+    // Tell the transport that something was wrong.
+    errback(error);
+  }
+});
+transport.on(“produce”, fn(parameters, callback({ id }), errback(error))
+Emitted when the transport needs to transmit information about a new producer to the associated server side transport. This event occurs before the produce() method completes.
+
+Argument	Type	Description
+parameters	TransportProduceParameters	Parameters to create a server side producer.
+In server side, the application should call transport.produce().
+
+transport.on("produce", async (parameters, callback, errback) =>
+{
+  // Signal parameters to the server side transport and retrieve the id of 
+  // the server side new producer.
+  try
+  {
+    const data = await mySignaling.send(
+      "transport-produce",
+      {
+        transportId   : transport.id, 
+        kind          : parameters.kind,
+        rtpParameters : parameters.rtpParameters,
+        appData       : parameters.appData
+      });
+
+    // Let's assume the server included the created producer id in the response
+    // data object.
+    const { id } = data;
+
+    // Tell the transport that parameters were transmitted and provide it with the
+    // server side producer's id.
+    callback({ id });
+  }
+  catch (error)
+  {
+    // Tell the transport that something was wrong.
+    errback(error);
+  }
+});
+transport.on(“producedata”, fn(parameters, callback({ id }), errback(error))
+Emitted when the transport needs to transmit information about a new data producer to the associated server side transport. This event occurs before the produceData() method completes.
+
+Argument	Type	Description
+parameters	TransportProduceDataParameters	Parameters to create a server side data producer.
+In server side, the application should call transport.produceData().
+
+transport.on("producedata", async (parameters, callback, errback) =>
+{
+  // Signal parameters to the server side transport and retrieve the id of 
+  // the server side new producer.
+  try
+  {
+    const data = await mySignaling.send(
+      "transport-producedata",
+      {
+        transportId          : transport.id, 
+        sctpStreamParameters : parameters.sctpStreamParameters,
+        label                : parameters.label,
+        protocol             : parameters.protocol
+      });
+
+    // Let's assume the server included the created producer id in the response
+    // data object.
+    const { id } = data;
+
+    // Tell the transport that parameters were transmitted and provide it with the
+    // server side producer's id.
+    callback({ id });
+  }
+  catch (error)
+  {
+    // Tell the transport that something was wrong.
+    errback(error);
+  }
+});
+transport.on(“icegatheringstatechange”, fn(iceGatheringState))
+Emitted when the local transport ICE gathering state changes.
+
+Argument	Type	Description
+iceGatheringState	[RTCIceGatheringState	Transport ICE gathering state.
+transport.on(“icecandidateerror”, fn(event))
+Emitted when an error occurs while performing ICE negotiations through a STUN or TURN server.
+
+Argument	Type	Description
+event	RTCPeerConnectionIceErrorEvent	Details about the ICE negotiation error.
+transport.on(“connectionstatechange”, fn(connectionState))
+Emitted when the local transport connection state changes.
+
+Argument	Type	Description
+connectionState	RTCPeerConnectionState	Transport connection state.
+Observer Events
+See the Observer API section below.
+
+These are observer events common to all transport classes. Each transport class may define new ones.
+
+transport.observer.on(“close”, fn())
+Emitted when the transport is closed for whatever reason.
+
+transport.observer.on(“newproducer”, fn(producer))
+Emitted when a new producer is created.
+
+Argument	Type	Description
+producer	Producer	New producer.
+transport.observer.on("newproducer", (producer) =>
+{
+  console.log("new producer created [id:%s]", producer.id);
+});
+transport.observer.on(“newconsumer”, fn(consumer))
+Emitted when a new consumer is created.
+
+Argument	Type	Description
+consumer	Consumer	New consumer.
+transport.observer.on("newconsumer", (consumer) =>
+{
+  console.log("new consumer created [id:%s]", consumer.id);
+});
+transport.observer.on(“newdataproducer”, fn(dataProducer))
+Emitted when a new data producer is created.
+
+Argument	Type	Description
+dataProducer	DataProducer	New producer.
+transport.observer.on("newdataproducer", (dataProducer) =>
+{
+  console.log("new data producer created [id:%s]", dataProducer.id);
+});
+transport.observer.on(“newdataconsumer”, fn(dataConsumer))
+Emitted when a new data consumer is created.
+
+Argument	Type	Description
+dataConsumer	DataConsumer	New consumer.
+transport.observer.on("newdataconsumer", (dataConsumer) =>
+{
+  console.log("new data consumer created [id:%s]", dataConsumer.id);
+});
+Producer
+A producer represents an audio or video source that will be transmitted to the mediasoup router through a WebRTC transport.
+
+Dictionaries
+ProducerOptions
+Field	Type	Description	Required	Default
+track	MediaStreamTrack	An audio or video track.	Yes	 
+streamId	String	Stream id. Useful to group sending audio/video tracks that the consuming endpoint must synchonize when rendering them.	No	 
+encodings	Array<RTCRtpEncodingParameters>	Encoding settings.	No	 
+codecOptions	ProducerCodecOptions	Per codec specific options.	No	[ ]
+headerExtensionOptions	ProducerHeaderExtensionOptions	RTP header extension options.	No	[ ]
+codec	RtpCodecCapability	Specific media codec to use. If given, it must be a media codec in device.rtpCapabilities.codecs. If not given, first suitable codec will be used.	No	 
+stopTracks	Boolean	Whether mediasoup-client should call stop() on tracks handled by this producer. If set to false, the app is responsible of stopping tracks given to transport.produce() or produce.replaceTrack().	No	true
+disableTrackOnPause	Boolean	Whether the producer should set track.enabled = false when paused. If set to false, audio/video will still be sent after pausing the producer, so caution. Specially useful in combination with zeroRtpOnPause: true.	No	true
+zeroRtpOnPause	Boolean	If true, zero RTP will be sent when the producer is paused (this is internally achieved by deactivating the corresponding SDP media section). Otherwise, if false and the producer is paused, the underlying WebRTC engine may send some RTP packets containing audio silence or black video frames.	No	false
+onRtpSender	OnRtpSenderCallback	Callback called immediately once a RTCRtpSender is created.	No	 
+appData	Object	Custom application data.	No	{ }
+About streamId:
+
+It's used to generate the msid field of the resulting RtpSendParameters. streamId is the id field of the msid value, which identifies the MediaStream the outbound MediaStreamTrack belongs to. The resulting msid value is propagated to consuming endpoints so they can group inbound audio and video tracks znd render them in sync.
+
+libwebrtc based devices can just synchonize up to one inbound audio stream and one inbound video stream. If streamId is not given, the RtpParameters of all producers created on the same transport will share the same value (a random value) for streamId.
+
+Take into account that the consumer side can also set its desired streamId in its ConsumerOptions.
+
+The codec selection feature just works in modern browsers (it requires WebRTC Unified-Plan) and hence, mediasoup-client handlers such as Chrome55 (Plan-B) do not enable this feature.
+
+Simulcast
+
+If video simulcast is desired, encodings array must be filled with more than one encodings. Each encoding represents a simulcast RTP stream:
+
+The order of the encodings is important. The entry with index 0 represents the simulcast stream with lowest bitrate. The entry with index N-1 (being N the number of entries) represents the simulcast stream with highest bitrate. Take this into account when writting per encoding settings such as maxBitrate, maxFramerate or scaleResolutionDownBy.
+rid field must not be set. The library will internally add it if the underlying browser supports RID.
+active field must not be set. The library will internally set it to true.
+Check the mediasoup Simulcast documentation for more information.
+
+SVC
+
+If video SVC is desired, encodings array must contain a single entry with active: true and scalabilityMode indicating the number of spatial and temporal layers.
+
+Check the mediasoup SVC documentation for more information.
+
+The given track will be internally handled by mediasoup-client from now on, meaning that mediasoup-client will call stop() on it when the producer is closed or when producer.replaceTrack() is called unless stopTracks is set to false in transport.produce() options.
+
+So, if your application needs to use the track after that, it should set stopTracks: false or clone the original track and pass the cloned one to transport.produce().
+
+const clonedTrack = track.clone();
+const producer = await transport.produce(clonedTrack, ...);
+ProducerCodecOptions
+Field	Type	Description	Required	Default
+opusStereo	Boolean	Enable OPUS stereo (if the audio source is stereo).	No	Browser specific.
+opusFec	Boolean	Enable OPUS in band FEC.	No	Browser specific.
+opusDtx	Boolean	Enable OPUS discontinuous transmission.	No	Browser specific.
+opusMaxPlaybackRate	Number	Set OPUS maximum playback rate.	No	Browser specific.
+opusMaxAverageBitrate	Number	Set OPUS maximum average bitrate.	No	Browser specific.
+opusPtime	Number	Set OPUS preferred duration of media represented by a packet.	No	Browser specific.
+opusNack	Boolean	Enable retransmission of lost OPUS RTP packets via negotiated RTCP NACK. Only available in modern libwebrtc based handlers.	No	false
+videoGoogleStartBitrate	Number	Just for libwebrtc based browsers. Set video initial bitrate.	No	 
+videoGoogleMaxBitrate	Number	Just for libwebrtc based browsers. Set video maximum bitrate.	No	 
+videoGoogleMinBitrate	Number	Just for libwebrtc based browsers. Set video minimum bitrate.	No	 
+ProducerHeaderExtensionOptions
+Field	Type	Description	Required	Default
+absCaptureTime	Boolean	Instructs the browser/device to include abs-capture-time header extension in the RTP packets.	No	false.
+OnRtpSenderCallback
+Invoked synchronously immediately after a new RTCRtpSender is created. This allows for creating encoded streams in browsers supporting it.
+
+type OnRtpSenderCallback = (rtpSender: RTCRtpSender) => void;
+Properties
+producer.id
+Producer identifier.
+
+@type String, read only
+
+producer.closed
+Whether the producer is closed.
+
+@type Boolean, read only
+
+producer.kind
+The media kind (“audio” or “video”).
+
+@type MediaKind, read only
+
+producer.rtpSender
+The associated WebRTC RTCRtpSender for this producer. It may be undefined for non modern WebRTC implementations.
+
+@type RTCRtpSender|Undefined, read only
+
+By getting access to the RTCRtpSender the application can directly modify its parameters or members. Use it with caution.
+
+producer.track
+The audio or video track being transmitted.
+
+@type MediaStreamTrack, read only
+
+producer.rtpParameters
+Producer RTP parameters. These parameters are internally built by the library and conform to the syntax and requirements of mediasoup, thus they can be transmitted to the server to invoke transport.produce() with them.
+
+@type RtpSendParameters, read only
+
+Check the Communication Between Client and Server section for more details.
+
+producer.paused
+Whether the producer is paused.
+
+@type Boolean, read only
+
+producer.maxSpatialLayer
+In case of simulcast, this value determines the highest stream (from 0 to N-1) being transmitted. See the setMaxSpatialLayer() method for more about this.
+
+@type Number, read only
+
+producer.appData
+Custom data Object provided by the application in the producer factory method. The app can modify its content at any time.
+
+@type Object
+
+producer.observer
+See the Observer Events section below.
+
+@type EventEmitter, read only
+
+Methods
+producer.close()
+Closes the producer. No more media is transmitted. The producer's track is internally stopped by calling stop() on it, meaning that it becomes no longer usable.
+
+This method should be called when the server side producer has been closed (and vice-versa).
+
+producer.getStats()
+Gets the local RTP sender statistics by calling getStats() in the underlying RTCRtpSender instance.
+
+@async
+
+@returns RTCStatsReport
+
+producer.pause()
+Pauses the producer (no RTP is sent to the server).
+
+This method should be called when the server side producer has been paused (and vice-versa).
+
+producer.resume()
+Resumes the producer (RTP is sent again to the server).
+
+This method should be called when the server side producer has been resumed (and vice-versa).
+
+producer.replaceTrack({ track })
+Replaces the audio or video track being transmitted. No negotiation with the server is needed.
+
+@async
+
+Argument	Type	Description	Required	Default
+track	MediaStreamTrack	An audio or video track.	Yes	 
+const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+const newVideoTrack = stream.getVideoTracks()[0];
+
+await producer.replaceTrack({ track: newVideoTrack });
+producer.setMaxSpatialLayer(spatialLayer)
+In case of simulcast, this method limits the highest RTP stream being transmitted to the server.
+
+@async
+
+Argument	Type	Description	Required	Default
+spatialLayer	Number	The index of the entry in encodings representing the highest RTP stream that will be transmitted.	Yes	 
+// Assuming `encodings` array has 3 entries, let's enable just the first and
+// second streams (indexes 0 and 1).
+await producer.setMaxSpatialLayer(1);
+producer.setRtpEncodingParameters(params)
+Add parameters to all encodings in the RTCRtpSender of the producer. Use with caution.
+
+@async
+
+Argument	Type	Description	Required	Default
+params	Object	Object with key-value pairs.	Yes	 
+// Set IP DSCP field.
+await producer.setRtpEncodingParameters({ networkPriority: 'high' });
+Events
+producer.on(“transportclose”, fn())
+Emitted when the transport this producer belongs to is closed for whatever reason. The producer itself is also closed.
+
+producer.on("transportclose", () =>
+{
+  console.log("transport closed so producer closed");
+});
+producer.on(“trackended”, fn())
+Emitted when the audio/video track being transmitted is externally stopped. This may happen, for instance, if the associated microphone or webcam source is disconnected. This is a good chance for the application to close/pause the producer or replace its track.
+
+producer.on("trackended", () =>
+{
+  console.log("track ended");
+});
+Observer Events
+See the Observer API section below.
+
+producer.observer.on(“close”, fn())
+Emitted when the producer is closed for whatever reason.
+
+producer.observer.on(“pause”, fn())
+Emitted when the producer is paused.
+
+producer.observer.on(“resume”, fn())
+Emitted when the producer is resumed.
+
+producer.observer.on(“trackended”, fn())
+Emitted when the audio/video track being transmitted is externally stopped. This may happen, for instance, if the associated microphone or webcam source is disconnected. This is a good chance for the application to close/pause the producer or replace its track.
+
+Consumer
+A consumer represents an audio or video remote source being transmitted from the mediasoup router to the client application through a WebRTC transport.
+
+Dictionaries
+ConsumerOptions
+Field	Type	Description	Required	Default	 
+id	String	The identifier of the server side consumer.	Yes	 	 
+producerId	String	The identifier of the server side producer being consumed.	Yes	 	 
+kind	MediaKind	Media kind (“audio” or “video”).	Yes	 	 
+rtpParameters	RtpReceiveParameters	Receive RTP parameters.	Yes	 	 
+streamId	String	Stream id. Useful to limit the inbound RTP streams that the underlying RTC stack should try to synchonize when rendering them.	No	The RTCP CNAME of the remote producer.	No
+onRtpReceiver	OnRtpReceiverCallback	Callback called immediately once a RTCRtpReceiver is created.	No	 	 
+appData	Object	Custom application data.	No	{ }	 
+About streamId:
+
+It's used to generate the a=msid attribute of each audio or video media section in the remote SDP. The streamId is the id field of the msid value, which identifies the MediaStream the inbound MediaStreamTrack belongs to.
+
+libwebrtc based devices can just synchonize up to one inbound audio stream and one inbound video stream. If streamId is not given, it will respect the msid in the receive RtpSendParameters, which mirrors the msid in the RtpParameters of the original producer. However, the application may wish to ensure that inbound microphone and camera streams produced by a remote peer are synchonized (instead of synchronizing, for instance, microphone and screen sharing streams).
+
+Usage example:
+
+micConsumer = await transport.consume({ streamId: `${remotePeerId}-mic-webcam` });
+webcamConsumer = await transport.consume({ streamId: `${remotePeerId}-mic-webcam` });
+screensharingConsumer = await transport.consume({ streamId: `${remotePeerId}-screensharing` });
+Take into account that the producer side can also set its desired streamId in its ProducerOptions.
+
+OnRtpReceiverCallback
+Invoked synchronously immediately after a new RTCRtpReceiver is created. This allows for creating encoded streams in browsers supporting it.
+
+type OnRtpReceiverCallback = (rtpReceiver: RTCRtpReceiver) => void;
+Properties
+consumer.id
+Consumer identifier.
+
+@type String, read only
+
+consumer.producerId
+The associated producer identifier.
+
+@type String, read only
+
+consumer.closed
+Whether the consumer is closed.
+
+@type Boolean, read only
+
+consumer.kind
+The media kind (“audio” or “video”).
+
+@type MediaKind, read only
+
+consumer.rtpReceiver
+The associated WebRTC RTCRtpReceiver for this consumer. It may be undefined for non modern WebRTC implementations.
+
+@type RTCRtpReceiver|Undefined, read only
+
+By getting access to the RTCRtpReceiver the application can directly modify its parameters or members. Use it with caution.
+
+consumer.track
+The remote audio or video track.
+
+@type MediaStreamTrack, read only
+
+consumer.rtpParameters
+Consumer RTP parameters.
+
+@type RtpReceiveParameters, read only
+
+Check the Communication Between Client and Server section for more details.
+
+consumer.paused
+Whether the consumer is paused.
+
+@type Boolean, read only
+
+consumer.appData
+Custom data Object provided by the application in the consumer factory method. The app can modify its content at any time.
+
+@type Object
+
+consumer.observer
+See the Observer Events section below.
+
+@type EventEmitter, read only
+
+Methods
+consumer.close()
+Closes the consumer.
+
+This method should be called when the server side consumer has been closed (and vice-versa).
+
+consumer.getStats()
+Gets the local RTP receiver statistics by calling getStats() in the underlying RTCRtpReceiver instance.
+
+@async
+
+@returns RTCStatsReport
+
+consumer.pause()
+Pauses the consumer. Internally the library sets track.enabled = false in the remote track.
+
+This method should be called when the server side consumer has been paused (and vice-versa).
+
+consumer.resume()
+Resumes the consumer Internally the library sets track.enabled = true in the remote track.
+
+This method should be called when the server side consumer has been resumed (and vice-versa).
+
+Events
+consumer.on(“transportclose”, fn())
+Emitted when the transport this consumer belongs to is closed for whatever reason. The consumer itself is also closed.
+
+consumer.on("transportclose", () =>
+{
+  console.log("transport closed so consumer closed");
+});
+consumer.on(“trackended”, fn())
+Emitted when the audio/video track being received is externally stopped.
+
+Observer Events
+See the Observer API section below.
+
+consumer.observer.on(“close”, fn())
+Emitted when the consumer is closed for whatever reason.
+
+consumer.observer.on(“pause”, fn())
+Emitted when the consumer or its associated producer is paused and, as result, the consumer becomes paused.
+
+consumer.observer.on(“resume”, fn())
+Emitted when the consumer or its associated producer is resumed and, as result, the consumer is no longer paused.
+
+consumer.observer.on(“trackended”, fn())
+Emitted when the audio/video track being received is externally stopped.
+
+DataProducer
+A data producer represents a data source that will be transmitted to the mediasoup router through a WebRTC transport.
+
+Dictionaries
+DataProducerOptions
+Field	Type	Description	Required	Default
+ordered	Boolean	Whether data messages must be sent in order. if true the messages will be sent reliably.	No	true
+maxPacketLifeTime	Number	When ordered is false indicates the time (in milliseconds) after which a SCTP packet will stop being retransmitted.	No	 
+maxRetransmits	Number	When ordered is false indicates the maximum number of times a packet will be retransmitted.	No	 
+label	String	A label which can be used to distinguish this DataChannel from others.	No	''
+protocol	String	Name of the sub-protocol used by this DataChannel.	No	''
+appData	Object	Custom application data.	No	{ }
+Properties
+dataProducer.id
+Data producer identifier.
+
+@type String, read only
+
+dataProducer.closed
+Whether the data producer is closed.
+
+@type Boolean, read only
+
+dataProducer.sctpStreamParameters
+The SCTP stream parameters.
+
+@type SctpStreamParameters, read only
+
+dataProducer.readyState
+The DataChannel ready state.
+
+@type RtcDataChannelState, read only
+
+dataProducer.label
+The DataChannel label.
+
+@type String , read only
+
+dataProducer.protocol
+The DataChannel sub-protocol.
+
+@type String , read only
+
+dataProducer.bufferedAmount
+The number of bytes of application data (UTF-8 text and binary data) that have been queued using send().
+
+@type Number , read only
+
+dataProducer.bufferedAmountLowThreshold
+Threshold at which the buffered amount of bytes is considered to be low.
+
+@type Number
+
+dataProducer.appData
+Custom data Object provided by the application in the data producer factory method. The app can modify its content at any time.
+
+@type Object
+
+dataProducer.observer
+See the Observer Events section below.
+
+@type EventEmitter, read only
+
+Methods
+dataProducer.close()
+Closes the data producer. No more media is transmitted.
+
+This method should be called when the server side data producer has been closed (and vice-versa).
+
+dataProducer.send(data)
+Sends the given data over the corresponding DataChannel.
+
+Argument	Type	Description	Required	Default
+data	String|Blob|ArrayBuffer|ArrayBufferView	Data message to be sent.	No	 
+Events
+dataProducer.on(“transportclose”, fn())
+Emitted when the transport this data producer belongs to is closed for whatever reason. The data producer itself is also closed.
+
+dataProducer.on("transportclose", () =>
+{
+  console.log("transport closed so dataProducer closed");
+});
+dataProducer.on(“open”)
+Emitted when the underlying DataChannel is open.
+
+dataProducer.on(“error”, fn(error))
+Emitted when the underlying DataChannel fails to connect.
+
+Argument	Type	Description
+error	Error	Originating error.
+dataProducer.on(“close”)
+Emitted when the underlying DataChannel is closed for unknown reasons.
+
+dataProducer.on(“bufferedamountlow”)
+Emitted when the DataChannel buffered ammount of bytes decreases from above the ` bufferedAmountLowThreshold` value.
+
+Observer Events
+See the Observer API section below.
+
+dataProducer.observer.on(“close”, fn())
+Emitted when the producer is closed for whatever reason.
+
+DataConsumer
+A data consumer represents a data source being transmitted from the mediasoup router to the client application through a WebRTC transport.
+
+Dictionaries
+DataConsumerOptions
+Field	Type	Description	Required	Default
+id	String	The identifier of the server side data consumer.	Yes	 
+dataProducerId	String	The identifier of the server side data producer being consumed.	Yes	 
+sctpStreamParameters	SctpStreamParameters	Receive SCTP parameters.	Yes	 
+label	String	A label which can be used to distinguish this DataChannel from others.	No	''
+protocol	String	Name of the sub-protocol used by this DataChannel.	No	''
+appData	Object	Custom application data.	No	{ }
+Properties
+dataConsumer.id
+Data consumer identifier.
+
+@type String, read only
+
+dataConsumer.dataProducerId
+The associated data producer identifier.
+
+@type String, read only
+
+dataConsumer.closed
+Whether the data consumer is closed.
+
+@type Boolean, read only
+
+dataConsumer.sctpStreamParameters
+The SCTP stream parameters.
+
+This data is taken from the associated dataProducer.
+
+@type SctpStreamParameters, read only
+
+dataConsumer.readyState
+The DataChannel ready state.
+
+@type RtcDataChannelState, read only
+
+dataConsumer.label
+The DataChannel label.
+
+This data is taken from the associated dataProducer.
+
+@type String , read only
+
+dataConsumer.protocol
+The DataChannel sub-protocol.
+
+This data is taken from the associated dataProducer.
+
+@type String , read only
+
+dataConsumer.binaryType
+The DataChannel binary type: 'blob' or 'arrayBuffer'.
+
+@type String
+
+dataConsumer.appData
+Custom data Object provided by the application in the data consumer factory method. The app can modify its content at any time.
+
+@type Object
+
+dataConsumer.observer
+See the Observer Events section below.
+
+@type EventEmitter, read only
+
+Methods
+dataConsumer.close()
+Closes the data consumer.
+
+This method should be called when the server side data consumer has been closed (and vice-versa).
+
+Events
+dataConsumer.on(“transportclose”, fn())
+Emitted when the transport this data consumer belongs to is closed for whatever reason. The data consumer itself is also closed.
+
+dataConsumer.on("transportclose", () =>
+{
+  console.log("transport closed so dataConsumer closed");
+});
+dataConsumer.on(“open”)
+Emitted when the underlying DataChannel is open.
+
+dataConsumer.on(“error”, fn(error))
+Emitted when the underlying DataChannel fails to connect.
+
+Argument	Type	Description
+error	Error	Originating error
+dataConsumer.on(“close”)
+Emitted when the underlying DataChannel is closed for unknown reasons.
+
+dataConsumer.on(“message”, fn(data))
+Emitted when a DataChannel message is received.
+
+Argument	Type	Description
+data	String|Blob|ArrayBuffer	Data message received.
+Observer Events
+See the Observer API section below.
+
+dataConsumer.observer.on(“close”, fn())
+Emitted when the data consumer is closed for whatever reason.
+
+Observer API
+Most entities in mediasoup-client expose a observer property (a Node.js EventEmitter) that can be used by third party libraries to monitor everything related to mediasoup.
+
+The observer API should not be directly used by the application itself, but by separate modules or libraries that the application integrate into its code. Such a module or library may, for example, monitor all the creation and closure of transports, producers, consumers, etc. It could also monitor events generated by producers and consumers (“pause”, “resume”, etc).
+
+Usage example:
+
+const mediasoupClient = require("mediasoup-client");
+
+const mediasoupClientDevice = new mediasoupClientTypes.Device();
+
+mediasoupClientDevice.observer.on("newtransport", (transport) =>
+{
+  console.log(
+    "new transport created [transport.id:%s]", transport.id);
+
+  transport.observer.on("close", () => 
+  {
+    console.log("transport closed [transport.id:%s]", transport.id);
+  });
+
+  transport.observer.on("newproducer", (producer) =>
+  {
+    console.log(
+      "new producer created [transport.id:%s, producer.id:%s]",
+      transport.id, producer.id);
+
+    producer.observer.on("close", () => 
+    {
+      console.log("producer closed [producer.id:%s]", producer.id);
+    });
+  });
+
+  transport.observer.on("newconsumer", (consumer) =>
+  {
+    console.log(
+      "new consumer created [transport.id:%s, consumer.id:%s]",
+      transport.id, consumer.id);
+
+    consumer.observer.on("close", () => 
+    {
+      console.log("consumer closed [consumer.id:%s]", consumer.id);
+    });
+  });
+
+  transport.observer.on("newdataproducer", (dataProducer) =>
+  {
+    console.log(
+      "new data producer created [transport.id:%s, dataProducer.id:%s]",
+      transport.id, dataProducer.id);
+
+    dataProducer.observer.on("close", () => 
+    {
+      console.log("data producer closed [dataProducer.id:%s]", dataProducer.id);
+    });
+  });
+
+  transport.observer.on("newdataconsumer", (dataConsumer) =>
+  {
+    console.log(
+      "new data consumer created [transport.id:%s, dataConsumer.id:%s]",
+      transport.id, dataConsumer.id);
+
+    dataConsumer.observer.on("close", () => 
+    {
+      console.log("data consumer closed [dataConsumer.id:%s]", dataConsumer.id);
+    });
+  });
+});
+Documentation
+GitHub
+Support
+More
