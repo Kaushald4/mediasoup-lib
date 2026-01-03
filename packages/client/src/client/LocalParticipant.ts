@@ -12,6 +12,7 @@ import type {
 } from '../types';
 import { LocalTrack } from './LocalTrack';
 import { LocalTrackPublicationImpl } from './TrackPublication';
+import { MediaManager } from '../media/MediaManager';
 
 /**
  * LocalParticipant implementation
@@ -24,16 +25,17 @@ export class LocalParticipantImpl implements LocalParticipant {
   public metadata: Record<string, unknown>;
   public readonly isLocal = true as const;
 
-  protected tracks: Map<string, LocalTrackPublicationImpl> = new Map();
+  public tracks: Map<string, LocalTrackPublicationImpl> = new Map();
   protected listeners: Map<keyof LocalParticipantEvents, Set<(data: unknown) => void>> = new Map();
 
   private publishCallback?: (track: LocalTrack, options?: TrackPublishOptions) => Promise<void>;
   private unpublishCallback?: (sid: string) => Promise<void>;
   private publishDataCallback?: (data: unknown, kind: 'reliable' | 'lossy') => Promise<void>;
-  private enableCameraCallback?: () => Promise<void>;
+  private enableCameraCallback?: (deviceId?: string) => Promise<void>;
   private disableCameraCallback?: () => Promise<void>;
-  private enableMicrophoneCallback?: () => Promise<void>;
+  private enableMicrophoneCallback?: (deviceId?: string) => Promise<void>;
   private disableMicrophoneCallback?: () => Promise<void>;
+  private mediaManager: MediaManager;
 
   constructor(info: ParticipantInfo) {
     this.sid = info.sid;
@@ -41,6 +43,7 @@ export class LocalParticipantImpl implements LocalParticipant {
     this.name = info.name || info.identity;
     this.state = info.state;
     this.metadata = info.metadata || {};
+    this.mediaManager = new MediaManager();
 
     // Initialize tracks from server info
     info.tracks.forEach((trackInfo) => {
@@ -146,10 +149,11 @@ export class LocalParticipantImpl implements LocalParticipant {
 
   /**
    * Enable camera (video)
+   * @param deviceId - Optional specific device ID to use. If not provided, uses default camera.
    */
-  async enableCamera(): Promise<void> {
+  async enableCamera(deviceId?: string): Promise<void> {
     if (this.enableCameraCallback) {
-      await this.enableCameraCallback();
+      await this.enableCameraCallback(deviceId);
     }
   }
 
@@ -164,10 +168,11 @@ export class LocalParticipantImpl implements LocalParticipant {
 
   /**
    * Enable microphone (audio)
+   * @param deviceId - Optional specific device ID to use. If not provided, uses default microphone.
    */
-  async enableMicrophone(): Promise<void> {
+  async enableMicrophone(deviceId?: string): Promise<void> {
     if (this.enableMicrophoneCallback) {
-      await this.enableMicrophoneCallback();
+      await this.enableMicrophoneCallback(deviceId);
     }
   }
 
@@ -178,6 +183,22 @@ export class LocalParticipantImpl implements LocalParticipant {
     if (this.disableMicrophoneCallback) {
       await this.disableMicrophoneCallback();
     }
+  }
+
+  /**
+   * List available microphones
+   */
+  async listAvailableMicrophones(): Promise<MediaDeviceInfo[]> {
+    await this.mediaManager.initialize();
+    return this.mediaManager.getAudioInputDevices();
+  }
+
+  /**
+   * List available cameras
+   */
+  async listAvailableCameras(): Promise<MediaDeviceInfo[]> {
+    await this.mediaManager.initialize();
+    return this.mediaManager.getVideoInputDevices();
   }
 
   /**
@@ -242,7 +263,7 @@ export class LocalParticipantImpl implements LocalParticipant {
   /**
    * Set enable camera callback
    */
-  setEnableCameraCallback(callback: () => Promise<void>): void {
+  setEnableCameraCallback(callback: (deviceId?: string) => Promise<void>): void {
     this.enableCameraCallback = callback;
   }
 
@@ -256,7 +277,7 @@ export class LocalParticipantImpl implements LocalParticipant {
   /**
    * Set enable microphone callback
    */
-  setEnableMicrophoneCallback(callback: () => Promise<void>): void {
+  setEnableMicrophoneCallback(callback: (deviceId?: string) => Promise<void>): void {
     this.enableMicrophoneCallback = callback;
   }
 
@@ -308,6 +329,7 @@ export class LocalParticipantImpl implements LocalParticipant {
    */
   removeAllListeners(): void {
     this.listeners.clear();
+    this.mediaManager.stopAllTracks();
     this.tracks.forEach((track) => {
       if (track.track) {
         track.track.removeAllListeners();

@@ -1,10 +1,12 @@
 /**
  * RoomClient - Main client class for connecting to a mediasoup room
  *
- * Refactored to use the Command pattern with HandlerRegistry for better maintainability.
+ * Refactored to follow Single Responsibility Principle.
+ * RoomClient acts as a facade/coordinator, delegating to specialized controllers.
  */
 
-import type { RoomInfo, TrackSource } from '@mediasoup-lib/shared';
+import type { RoomInfo, RtpCapabilities } from '@mediasoup-lib/shared';
+import { TrackKind, TrackSource, ConnectionState } from '@mediasoup-lib/shared';
 import type {
   RoomClientOptions,
   RoomEvents,
@@ -14,49 +16,89 @@ import type {
   RemoteTrackPublication,
   TrackSubscribeOptions,
 } from '../types';
-import { ConnectionState } from '@mediasoup-lib/shared';
 import { LocalParticipantImpl } from './LocalParticipant';
 import { RemoteParticipantImpl } from './Participant';
-import { RemoteTrack as RemoteTrackImpl } from './RemoteTrack';
 import { LocalTrack as LocalTrackImpl } from './LocalTrack';
 import { LocalTrackPublicationImpl } from './TrackPublication';
-import { MediaManager } from '../media';
-import { WebRTCManager } from '../webrtc/WebRTCManager';
-import type { types } from 'mediasoup-client';
-import { handlerRegistry } from './handlers';
+import {
+  EventBus,
+  ParticipantStore,
+  ConnectionController,
+  SignalingClient,
+  MediaController,
+  WebRTCController,
+  TrackController,
+} from './controllers';
 
 /**
  * RoomClient - Main client class for connecting to a mediasoup room
+ *
+ * Acts as a facade/coordinator, delegating to specialized controllers.
  */
 export class RoomClient {
   public readonly options: RoomClientOptions;
 
-  private ws: WebSocket | null = null;
-  private reconnectAttempts = 0;
-  private maxReconnectAttempts = 5;
-  private reconnectDelay = 1000;
+  // Controllers
+  private eventBus: EventBus;
+  private participantStore: ParticipantStore;
+  private connectionController: ConnectionController;
+  private signalingClient: SignalingClient;
+  private mediaController: MediaController;
+  private webRTCController: WebRTCController;
+  private trackController: TrackController;
 
-  private roomInfo: RoomInfo | null = null;
-  private localParticipant: LocalParticipantImpl | null = null;
-  private participants: Map<string, RemoteParticipantImpl> = new Map();
-  private rtpCapabilities: any = null;
-
-  private listeners: Map<keyof RoomEvents, Set<(data: unknown) => void>> = new Map();
-  private pendingMessages: unknown[] = [];
-
-  // WebRTC and Media managers (internal)
-  private mediaManager: MediaManager | null = null;
-  private webRTCManager: WebRTCManager | null = null;
-  private isWebRTCInitialized = false;
-
-  // Track state
-  private localAudioTrack: MediaStreamTrack | null = null;
-  private localVideoTrack: MediaStreamTrack | null = null;
-  private localAudioProducer: types.Producer | null = null;
-  private localVideoProducer: types.Producer | null = null;
+  // Room state
+  public roomInfo: RoomInfo | null = null;
+  public rtpCapabilities: RtpCapabilities | null = null;
 
   constructor(options: RoomClientOptions) {
     this.options = options;
+
+    // Initialize controllers
+    this.eventBus = new EventBus();
+    this.participantStore = new ParticipantStore();
+    this.connectionController = new ConnectionController(options);
+    this.signalingClient = new SignalingClient(options, (message) =>
+      this.connectionController.send(message)
+    );
+    this.mediaController = new MediaController();
+    this.webRTCController = new WebRTCController((message) =>
+      this.connectionController.send(message)
+    );
+    this.trackController = new TrackController(
+      this.webRTCController,
+      this.participantStore,
+      (event, data) => this.eventBus.emit(event as keyof RoomEvents, data)
+    );
+
+    // Setup controller wiring
+    this.setupControllers();
+  }
+
+  /**
+   * Setup controller wiring
+   */
+  private setupControllers(): void {
+    // Wire connection state changes to event bus
+    this.connectionController.onStateChange((state) => {
+      this.eventBus.emit('connection-state-changed', state);
+    });
+
+    // Wire connection errors to event bus
+    this.connectionController.onError((error) => {
+      this.eventBus.emit('error', error);
+    });
+
+    // Wire incoming messages to signaling client and WebRTC handlers
+    this.connectionController.setMessageListener((message) => {
+      this.eventBus.emit('message', message);
+      this.signalingClient.handleMessage(message as Record<string, unknown>);
+      // Also notify WebRTC message handlers
+      this.webRTCController.getMessageHandlers().forEach((handler) => handler(message));
+    });
+
+    // Set client reference in signaling client for handlers
+    this.signalingClient.setClient(this);
   }
 
   /**
@@ -64,19 +106,11 @@ export class RoomClient {
    */
   async connect(): Promise<void> {
     try {
-      // Connect WebSocket
-      await this.connectWebSocket();
-
-      // Send join message
-      this.send({
-        type: 'join',
-        room: this.options.room,
-        token: this.options.token,
-      });
-
-      this.emit('connection-state-changed', ConnectionState.Connected);
+      await this.connectionController.connect();
+      this.signalingClient.sendJoin();
+      this.eventBus.emit('connection-state-changed', ConnectionState.Connected);
     } catch (error) {
-      this.emit('error', error as Error);
+      this.eventBus.emit('error', error as Error);
       throw error;
     }
   }
@@ -85,88 +119,72 @@ export class RoomClient {
    * Disconnect from the room
    */
   async disconnect(): Promise<void> {
-    // Stop local tracks
-    this.stopLocalTracks();
+    // Stop all tracks
+    this.trackController.stopAllLocalTracks();
 
-    // Close WebRTC manager
-    if (this.webRTCManager) {
-      this.webRTCManager.close();
-      this.webRTCManager = null;
-    }
+    // Close WebRTC
+    this.webRTCController.close();
 
-    // Stop media manager
-    if (this.mediaManager) {
-      this.mediaManager.stopAllTracks();
-      this.mediaManager = null;
-    }
+    // Stop media
+    this.mediaController.destroy();
 
-    // Close WebSocket
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-    }
+    // Disconnect connection
+    this.connectionController.disconnect();
 
-    // Clean up participants
-    this.participants.forEach((participant) => participant.removeAllListeners());
-    this.participants.clear();
+    // Clear participants
+    this.participantStore.clear();
 
-    // Clean up local participant
-    if (this.localParticipant) {
-      this.localParticipant.removeAllListeners();
-      this.localParticipant = null;
-    }
-
-    this.isWebRTCInitialized = false;
-
-    this.emit('disconnected');
-    this.emit('connection-state-changed', ConnectionState.Disconnected);
+    // Emit disconnected event
+    this.eventBus.emit('disconnected');
+    this.eventBus.emit('connection-state-changed', ConnectionState.Disconnected);
   }
 
   /**
    * Enable camera (video)
+   * @param deviceId - Optional specific device ID to use. If not provided, uses default camera.
    */
-  async enableCamera(): Promise<void> {
-    if (!this.isWebRTCInitialized) {
-      await this.initializeWebRTC();
+  async enableCamera(deviceId?: string): Promise<void> {
+    await this.ensureWebRTCInitialized();
+
+    const localParticipant = this.participantStore.getLocalParticipant();
+    if (!localParticipant) {
+      throw new Error('Local participant not found');
     }
 
-    if (!this.mediaManager || !this.webRTCManager || !this.localParticipant) {
-      throw new Error('WebRTC not initialized');
-    }
+    // Create video track with optional device selection
+    const videoTrack = deviceId
+      ? await this.mediaController.switchVideoDevice(deviceId)
+      : await this.mediaController.createVideoTrack();
 
-    // Create video track
-    const videoTrack = await this.mediaManager.createVideoTrack();
-    this.localVideoTrack = (videoTrack as any).mediaTrack;
-
-    if (!this.localVideoTrack) {
+    const mediaTrack = (videoTrack as LocalTrackImpl).mediaTrack;
+    if (!mediaTrack) {
       throw new Error('Failed to create video track');
     }
 
-    // Publish via WebRTC manager first to get producer ID
-    this.localVideoProducer = await this.webRTCManager.publishTrack(this.localVideoTrack, {
-      source: 'camera',
-    });
-
-    // Use producer ID as the track SID for consistency
-    const trackSid = this.localVideoProducer.id;
+    // Publish via track controller
+    const { sid } = await this.trackController.publishLocalTrack(
+      mediaTrack,
+      TrackKind.Video,
+      TrackSource.Camera
+    );
 
     // Create LocalTrack object
     const localTrack = new LocalTrackImpl(
       {
-        sid: trackSid,
-        kind: 'video' as any,
-        source: 'camera' as TrackSource,
+        sid,
+        kind: TrackKind.Video,
+        source: TrackSource.Camera,
         muted: false,
       },
-      this.localVideoTrack
+      mediaTrack
     );
 
-    // Create publication with producer ID as SID
+    // Create publication
     const publication = new LocalTrackPublicationImpl(
       {
-        sid: trackSid,
-        kind: 'video' as any,
-        source: 'camera' as TrackSource,
+        sid,
+        kind: TrackKind.Video,
+        source: TrackSource.Camera,
         muted: false,
         simulcast: false,
       },
@@ -175,27 +193,30 @@ export class RoomClient {
     );
 
     // Add to local participant
-    (this.localParticipant as any).tracks.set(publication.sid, publication);
+    (
+      (localParticipant as LocalParticipantImpl).tracks as Map<string, LocalTrackPublicationImpl>
+    ).set(publication.sid, publication);
 
-    console.log('Camera enabled, track SID:', trackSid);
+    console.log('Camera enabled, track SID:', sid, deviceId ? `device: ${deviceId}` : '');
   }
 
   /**
    * Disable camera (video)
    */
   async disableCamera(): Promise<void> {
-    if (this.localVideoTrack) {
-      this.localVideoTrack.stop();
-      this.localVideoTrack = null;
-    }
+    await this.trackController.unpublishLocalTrack(TrackKind.Video);
 
-    if (this.localVideoProducer) {
-      await this.webRTCManager?.unpublishTrack(this.localVideoProducer.id);
-      // Remove the publication from local participant's tracks map
-      if (this.localParticipant) {
-        (this.localParticipant as any).tracks.delete(this.localVideoProducer.id);
+    const localParticipant = this.participantStore.getLocalParticipant();
+    if (localParticipant) {
+      const producer = this.trackController.getLocalVideoProducer();
+      if (producer) {
+        (
+          (localParticipant as LocalParticipantImpl).tracks as Map<
+            string,
+            LocalTrackPublicationImpl
+          >
+        ).delete(producer.id);
       }
-      this.localVideoProducer = null;
     }
 
     console.log('Camera disabled');
@@ -203,49 +224,50 @@ export class RoomClient {
 
   /**
    * Enable microphone (audio)
+   * @param deviceId - Optional specific device ID to use. If not provided, uses default microphone.
    */
-  async enableMicrophone(): Promise<void> {
-    if (!this.isWebRTCInitialized) {
-      await this.initializeWebRTC();
+  async enableMicrophone(deviceId?: string): Promise<void> {
+    await this.ensureWebRTCInitialized();
+
+    const localParticipant = this.participantStore.getLocalParticipant();
+    if (!localParticipant) {
+      throw new Error('Local participant not found');
     }
 
-    if (!this.mediaManager || !this.webRTCManager || !this.localParticipant) {
-      throw new Error('WebRTC not initialized');
-    }
+    // Create audio track with optional device selection
+    const audioTrack = deviceId
+      ? await this.mediaController.switchAudioDevice(deviceId)
+      : await this.mediaController.createAudioTrack();
 
-    // Create audio track
-    const audioTrack = await this.mediaManager.createAudioTrack();
-    this.localAudioTrack = (audioTrack as any).mediaTrack;
-
-    if (!this.localAudioTrack) {
+    const mediaTrack = (audioTrack as LocalTrackImpl).mediaTrack;
+    if (!mediaTrack) {
       throw new Error('Failed to create audio track');
     }
 
-    // Publish via WebRTC manager first to get producer ID
-    this.localAudioProducer = await this.webRTCManager.publishTrack(this.localAudioTrack, {
-      source: 'microphone',
-    });
-
-    // Use producer ID as the track SID for consistency
-    const trackSid = this.localAudioProducer.id;
+    // Publish via track controller
+    const { sid } = await this.trackController.publishLocalTrack(
+      mediaTrack,
+      TrackKind.Audio,
+      TrackSource.Microphone
+    );
 
     // Create LocalTrack object
     const localTrack = new LocalTrackImpl(
       {
-        sid: trackSid,
-        kind: 'audio' as any,
-        source: 'microphone' as TrackSource,
+        sid,
+        kind: TrackKind.Audio,
+        source: TrackSource.Microphone,
         muted: false,
       },
-      this.localAudioTrack
+      mediaTrack
     );
 
-    // Create publication with producer ID as SID
+    // Create publication
     const publication = new LocalTrackPublicationImpl(
       {
-        sid: trackSid,
-        kind: 'audio' as any,
-        source: 'microphone' as TrackSource,
+        sid,
+        kind: TrackKind.Audio,
+        source: TrackSource.Microphone,
         muted: false,
         simulcast: false,
       },
@@ -254,37 +276,54 @@ export class RoomClient {
     );
 
     // Add to local participant
-    (this.localParticipant as any).tracks.set(publication.sid, publication);
+    (
+      (localParticipant as LocalParticipantImpl).tracks as Map<string, LocalTrackPublicationImpl>
+    ).set(publication.sid, publication);
 
-    console.log('Microphone enabled, track SID:', trackSid);
+    console.log('Microphone enabled, track SID:', sid, deviceId ? `device: ${deviceId}` : '');
   }
 
   /**
    * Disable microphone (audio)
    */
   async disableMicrophone(): Promise<void> {
-    if (this.localAudioTrack) {
-      this.localAudioTrack.stop();
-      this.localAudioTrack = null;
-    }
+    await this.trackController.unpublishLocalTrack(TrackKind.Audio);
 
-    if (this.localAudioProducer) {
-      await this.webRTCManager?.unpublishTrack(this.localAudioProducer.id);
-      // Remove the publication from local participant's tracks map
-      if (this.localParticipant) {
-        (this.localParticipant as any).tracks.delete(this.localAudioProducer.id);
+    const localParticipant = this.participantStore.getLocalParticipant();
+    if (localParticipant) {
+      const producer = this.trackController.getLocalAudioProducer();
+      if (producer) {
+        (
+          (localParticipant as LocalParticipantImpl).tracks as Map<
+            string,
+            LocalTrackPublicationImpl
+          >
+        ).delete(producer.id);
       }
-      this.localAudioProducer = null;
     }
 
     console.log('Microphone disabled');
   }
 
   /**
-   * Initialize WebRTC (internal)
+   * List available microphones
    */
-  private async initializeWebRTC(): Promise<void> {
-    if (this.isWebRTCInitialized) {
+  async listAvailableMicrophones(): Promise<MediaDeviceInfo[]> {
+    return this.mediaController.listAvailableMicrophones();
+  }
+
+  /**
+   * List available cameras
+   */
+  async listAvailableCameras(): Promise<MediaDeviceInfo[]> {
+    return this.mediaController.listAvailableCameras();
+  }
+
+  /**
+   * Ensure WebRTC is initialized (public for handlers)
+   */
+  public async ensureWebRTCInitialized(): Promise<void> {
+    if (this.webRTCController.isReady()) {
       return;
     }
 
@@ -292,41 +331,13 @@ export class RoomClient {
       throw new Error('RTP capabilities not available. Wait for connection.');
     }
 
-    // Initialize media manager
-    this.mediaManager = new MediaManager();
-    await this.mediaManager.initialize();
+    // Initialize media controller
+    await this.mediaController.initialize();
 
-    // Initialize WebRTC manager
-    this.webRTCManager = new WebRTCManager(this);
-    await this.webRTCManager.initialize(this.rtpCapabilities);
+    // Initialize WebRTC controller
+    await this.webRTCController.initialize(this.rtpCapabilities);
 
-    // Create send and receive transports
-    await this.webRTCManager.createSendTransport();
-    await this.webRTCManager.createRecvTransport();
-
-    this.isWebRTCInitialized = true;
     console.log('WebRTC initialized');
-  }
-
-  /**
-   * Stop local tracks
-   */
-  private stopLocalTracks(): void {
-    if (this.localAudioTrack) {
-      this.localAudioTrack.stop();
-      this.localAudioTrack = null;
-    }
-    if (this.localVideoTrack) {
-      this.localVideoTrack.stop();
-      this.localVideoTrack = null;
-    }
-    this.localAudioProducer = null;
-    this.localVideoProducer = null;
-
-    // Clear local participant tracks
-    if (this.localParticipant) {
-      (this.localParticipant as any).tracks.clear();
-    }
   }
 
   /**
@@ -340,28 +351,28 @@ export class RoomClient {
    * Get local participant
    */
   getLocalParticipant(): LocalParticipant | null {
-    return this.localParticipant;
+    return this.participantStore.getLocalParticipant();
   }
 
   /**
    * Get all participants
    */
   getParticipants(): RemoteParticipant[] {
-    return Array.from(this.participants.values());
+    return this.participantStore.getParticipants();
   }
 
   /**
    * Get participant by SID
    */
   getParticipant(sid: string): RemoteParticipant | null {
-    return this.participants.get(sid) || null;
+    return this.participantStore.getParticipant(sid);
   }
 
   /**
    * Get participant by identity
    */
   getParticipantByIdentity(identity: string): RemoteParticipant | null {
-    return Array.from(this.participants.values()).find((p) => p.identity === identity) || null;
+    return this.participantStore.getParticipantByIdentity(identity);
   }
 
   /**
@@ -369,82 +380,17 @@ export class RoomClient {
    */
   async subscribeToTrack(
     sid: string,
-    _options?: TrackSubscribeOptions
+    options?: TrackSubscribeOptions
   ): Promise<RemoteTrack | null> {
     console.log('subscribeToTrack called with sid:', sid);
-    const publication = this.findTrackPublication(sid);
-    if (!publication) {
-      console.error(`Track ${sid} not found in publications`);
-      throw new Error(`Track ${sid} not found`);
-    }
-
-    if (!this.webRTCManager) {
-      throw new Error('WebRTC not initialized');
-    }
-
-    // Subscribe via WebRTC manager
-    const consumer = await this.webRTCManager.subscribeToTrack(sid);
-    console.log('Consumer created:', consumer.id, 'track:', consumer.track, 'kind:', consumer.kind);
-
-    // Check if consumer track exists
-    if (!consumer.track) {
-      console.error('Consumer track is null or undefined!', consumer.id);
-      return null;
-    }
-
-    // Create remote track from consumer - use producerId (sid) as track SID, not consumer ID
-    const track = new RemoteTrackImpl(
-      {
-        sid: sid, // Use producerId as SID to match publication
-        kind: consumer.kind as any,
-        source: publication.source as any,
-        muted: false,
-      },
-      consumer.track as MediaStreamTrack
-    );
-
-    console.log(
-      'RemoteTrack created:',
-      track.sid,
-      'mediaTrack:',
-      track.mediaTrack,
-      'kind:',
-      track.kind
-    );
-
-    (publication as any).setTrack(track);
-    console.log('Track set on publication:', publication.sid, 'hasTrack:', !!publication.track);
-
-    track.emitSubscribed();
-    this.emit('track-subscribed', {
-      track,
-      publication,
-      participant: this.getParticipantFromPublication(publication),
-    });
-
-    return track;
+    return this.trackController.subscribeToTrack(sid, options);
   }
 
   /**
    * Unsubscribe from a track
    */
   async unsubscribeFromTrack(sid: string): Promise<void> {
-    const publication = this.findTrackPublication(sid);
-    if (!publication) {
-      throw new Error(`Track ${sid} not found`);
-    }
-
-    // Unsubscribe via WebRTC manager
-    const track = publication.track;
-    (publication as any).clearTrack();
-    if (track) {
-      (track as RemoteTrackImpl).emitUnsubscribed();
-      this.emit('track-unsubscribed', {
-        track,
-        publication,
-        participant: this.getParticipantFromPublication(publication),
-      });
-    }
+    await this.trackController.unsubscribeFromTrack(sid);
   }
 
   /**
@@ -453,7 +399,7 @@ export class RoomClient {
   async subscribeToAllTracks(options?: TrackSubscribeOptions): Promise<void> {
     const promises: Promise<void>[] = [];
 
-    this.participants.forEach((participant) => {
+    this.participantStore.getParticipants().forEach((participant) => {
       participant.getTracks().forEach((track: RemoteTrackPublication) => {
         promises.push(
           this.subscribeToTrack(track.sid, options).then(() => {
@@ -472,7 +418,7 @@ export class RoomClient {
   async unsubscribeFromAllTracks(): Promise<void> {
     const promises: Promise<void>[] = [];
 
-    this.participants.forEach((participant) => {
+    this.participantStore.getParticipants().forEach((participant) => {
       participant.getTracks().forEach((track: RemoteTrackPublication) => {
         promises.push(this.unsubscribeFromTrack(track.sid));
       });
@@ -485,161 +431,88 @@ export class RoomClient {
    * Send data to all participants
    */
   async sendData(data: unknown, kind: 'reliable' | 'lossy' = 'reliable'): Promise<void> {
-    if (this.localParticipant) {
-      await this.localParticipant.publishData(data, kind);
+    const localParticipant = this.participantStore.getLocalParticipant();
+    if (localParticipant) {
+      await localParticipant.publishData(data, kind);
     }
 
-    this.send({
-      type: 'data',
-      kind,
-      value: data,
-    });
+    this.signalingClient.sendData(data, kind);
   }
 
   /**
    * Add event listener
    */
   on<K extends keyof RoomEvents>(event: K, listener: RoomEvents[K]): void {
-    if (!this.listeners.has(event)) {
-      this.listeners.set(event, new Set());
-    }
-    this.listeners.get(event)!.add(listener as (data: unknown) => void);
+    this.eventBus.on(event, listener);
   }
 
   /**
    * Remove event listener
    */
   off<K extends keyof RoomEvents>(event: K, listener: RoomEvents[K]): void {
-    const listeners = this.listeners.get(event);
-    if (listeners) {
-      listeners.delete(listener as (data: unknown) => void);
-    }
+    this.eventBus.off(event, listener);
   }
 
   /**
    * Remove all event listeners
    */
   removeAllListeners(): void {
-    this.listeners.clear();
-  }
-
-  /**
-   * Connect WebSocket
-   */
-  private async connectWebSocket(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.ws = new WebSocket(this.options.url);
-
-      this.ws.onopen = () => {
-        this.reconnectAttempts = 0;
-        resolve();
-      };
-
-      this.ws.onclose = () => {
-        this.handleDisconnect();
-      };
-
-      this.ws.onerror = (error) => {
-        reject(error);
-      };
-
-      this.ws.onmessage = (event) => {
-        this.handleMessage(JSON.parse(event.data));
-      };
-    });
-  }
-
-  /**
-   * Handle WebSocket disconnect
-   */
-  private handleDisconnect(): void {
-    this.emit('connection-state-changed', ConnectionState.Disconnected);
-
-    if (this.reconnectAttempts < this.maxReconnectAttempts) {
-      this.reconnectAttempts++;
-      this.emit('connection-state-changed', ConnectionState.Reconnecting);
-
-      setTimeout(() => {
-        this.connect().catch((error) => {
-          this.emit('error', error);
-        });
-      }, this.reconnectDelay * this.reconnectAttempts);
-    } else {
-      this.emit('disconnected');
-    }
-  }
-
-  /**
-   * Handle incoming WebSocket message
-   *
-   * Delegates message handling to the HandlerRegistry.
-   */
-  private handleMessage(message: any): void {
-    // Emit message event for WebRTC signaling
-    this.emit('message', message);
-
-    // Handle message through registry
-    handlerRegistry.handle({ client: this }, message);
-  }
-
-  /**
-   * Send message via WebSocket (public for WebRTC signaling)
-   */
-  public send(message: unknown): void {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(message));
-    } else {
-      this.pendingMessages.push(message);
-    }
-  }
-
-  /**
-   * Find track publication by SID
-   */
-  private findTrackPublication(sid: string): RemoteTrackPublication | null {
-    for (const participant of this.participants.values()) {
-      const publication = participant.getTrack(sid);
-      if (publication) {
-        return publication;
-      }
-    }
-    return null;
+    this.eventBus.removeAllListeners();
   }
 
   /**
    * Get RTP capabilities
    */
-  public getRtpCapabilities(): any {
+  public getRtpCapabilities(): RtpCapabilities | null {
     return this.rtpCapabilities;
   }
 
   /**
-   * Emit event
+   * Emit event (public for handlers)
    */
-  private emit<K extends keyof RoomEvents>(event: K, data?: unknown): void {
-    const listeners = this.listeners.get(event);
-    if (listeners) {
-      listeners.forEach((listener) => {
-        try {
-          listener(data);
-        } catch (error) {
-          console.error(`Error in ${String(event)} listener:`, error);
-        }
-      });
-    }
+  public emit<K extends keyof RoomEvents>(event: K, data?: unknown): void {
+    this.eventBus.emit(event, data);
   }
 
   /**
-   * Get participant from publication
+   * Set room info (called by handlers)
    */
-  private getParticipantFromPublication(
-    publication: RemoteTrackPublication
-  ): RemoteParticipant | null {
-    for (const participant of this.participants.values()) {
-      if (participant.getTrack(publication.sid)) {
-        return participant;
-      }
-    }
-    return null;
+  public setRoomInfo(info: RoomInfo): void {
+    this.roomInfo = info;
+  }
+
+  /**
+   * Set RTP capabilities (called by handlers)
+   */
+  public setRtpCapabilities(capabilities: RtpCapabilities | null): void {
+    this.rtpCapabilities = capabilities;
+  }
+
+  /**
+   * Set local participant (called by handlers)
+   */
+  public setLocalParticipant(participant: LocalParticipantImpl): void {
+    this.participantStore.setLocalParticipant(participant);
+  }
+
+  /**
+   * Add participant (called by handlers)
+   */
+  public addParticipant(participant: RemoteParticipantImpl): void {
+    this.participantStore.addParticipant(participant);
+  }
+
+  /**
+   * Remove participant (called by handlers)
+   */
+  public removeParticipant(sid: string): RemoteParticipantImpl | null {
+    return this.participantStore.removeParticipant(sid);
+  }
+
+  /**
+   * Send message via WebSocket (public for handlers and WebRTC)
+   */
+  public send(message: Record<string, unknown>): void {
+    this.connectionController.send(message);
   }
 }

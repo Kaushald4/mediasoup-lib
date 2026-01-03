@@ -3,7 +3,6 @@
  */
 
 import { Device, types } from 'mediasoup-client';
-import type { RoomClient } from '../client/RoomClient';
 import type {
   RtpCapabilities,
   IceParameters,
@@ -59,11 +58,20 @@ export class WebRTCManager {
   private recvTransport: MediasoupTransport | null = null;
   private producers: Map<string, MediasoupProducer> = new Map();
   private consumers: Map<string, MediasoupConsumer> = new Map();
-  private roomClient: RoomClient;
+  private sendFn: (message: Record<string, unknown>) => void;
+  private onMessage: (handler: (data: unknown) => void) => void;
+  private offMessage: (handler: (data: unknown) => void) => void;
   private config: WebRTCConfig;
 
-  constructor(roomClient: RoomClient, config: WebRTCConfig = {}) {
-    this.roomClient = roomClient;
+  constructor(
+    sendFn: (message: Record<string, unknown>) => void,
+    onMessage: (handler: (data: unknown) => void) => void,
+    offMessage: (handler: (data: unknown) => void) => void,
+    config: WebRTCConfig = {}
+  ) {
+    this.sendFn = sendFn;
+    this.onMessage = onMessage;
+    this.offMessage = offMessage;
     this.config = {
       iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
       iceTransportPolicy: 'all',
@@ -174,15 +182,16 @@ export class WebRTCManager {
       };
 
       // Set up one-time listener for response
-      const handler = (data: any) => {
-        if (data.type === 'transport_created' && data.direction === direction) {
-          this.roomClient.off('message', handler);
-          resolve(data);
+      const handler = (data: unknown) => {
+        const msg = data as Record<string, unknown>;
+        if (msg.type === 'transport_created' && msg.direction === direction) {
+          this.offMessage(handler);
+          resolve(msg as never);
         }
       };
 
-      this.roomClient.on('message', handler);
-      this.roomClient.send(message);
+      this.onMessage(handler);
+      this.sendFn(message);
     });
   }
 
@@ -192,8 +201,12 @@ export class WebRTCManager {
   private setupTransportListeners(transport: MediasoupTransport, direction: 'send' | 'recv'): void {
     transport.on(
       'connect',
-      ({ dtlsParameters }: any, callback: () => void, _errback: (error: Error) => void) => {
-        this.roomClient.send({
+      (
+        { dtlsParameters }: { dtlsParameters: DtlsParameters },
+        callback: () => void,
+        _errback: (error: Error) => void
+      ) => {
+        this.sendFn({
           type: 'connect_transport',
           transportId: transport.id,
           dtlsParameters,
@@ -210,7 +223,11 @@ export class WebRTCManager {
       transport.on(
         'produce',
         async (
-          { kind, rtpParameters, appData }: any,
+          {
+            kind,
+            rtpParameters,
+            appData,
+          }: { kind: string; rtpParameters: RtpParameters; appData?: Record<string, unknown> },
           callback: (data: { id: string }) => void,
           errback: (error: Error) => void
         ) => {
@@ -243,19 +260,20 @@ export class WebRTCManager {
         appData,
       };
 
-      const handler = (data: any) => {
-        if (data.type === 'track_published' && data.id) {
-          this.roomClient.off('message', handler);
-          resolve(data);
+      const handler = (data: unknown) => {
+        const msg = data as Record<string, unknown>;
+        if (msg.type === 'track_published' && msg.id) {
+          this.offMessage(handler);
+          resolve(msg as never);
         }
       };
 
-      this.roomClient.on('message', handler);
-      this.roomClient.send(message);
+      this.onMessage(handler);
+      this.sendFn(message);
 
       // Timeout after 10 seconds
       setTimeout(() => {
-        this.roomClient.off('message', handler);
+        this.offMessage(handler);
         reject(new Error('Produce timeout'));
       }, 10000);
     });
@@ -302,7 +320,7 @@ export class WebRTCManager {
       producer.close();
       this.producers.delete(producerId);
 
-      this.roomClient.send({
+      this.sendFn({
         type: 'unpublish',
         producerId,
         trackSid: producerId,
@@ -363,19 +381,20 @@ export class WebRTCManager {
         rtpCapabilities: deviceRtpCapabilities || {},
       };
 
-      const handler = (data: any) => {
-        if (data.type === 'track_subscribed' && data.producerId === producerId) {
-          this.roomClient.off('message', handler);
-          resolve(data);
+      const handler = (data: unknown) => {
+        const msg = data as Record<string, unknown>;
+        if (msg.type === 'track_subscribed' && msg.producerId === producerId) {
+          this.offMessage(handler);
+          resolve(msg as never);
         }
       };
 
-      this.roomClient.on('message', handler);
-      this.roomClient.send(message);
+      this.onMessage(handler);
+      this.sendFn(message);
 
       // Timeout after 10 seconds
       setTimeout(() => {
-        this.roomClient.off('message', handler);
+        this.offMessage(handler);
         // reject(new Error('Subscribe timeout'));
       }, 10000);
     });
@@ -390,7 +409,7 @@ export class WebRTCManager {
       consumer.close();
       this.consumers.delete(consumerId);
 
-      this.roomClient.send({
+      this.sendFn({
         type: 'unsubscribe',
         consumerId,
       });
@@ -407,7 +426,7 @@ export class WebRTCManager {
     if (consumer) {
       await consumer.resume();
 
-      this.roomClient.send({
+      this.sendFn({
         type: 'resume_consumer',
         consumerId,
       });

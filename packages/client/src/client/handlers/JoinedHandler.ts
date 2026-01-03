@@ -2,26 +2,29 @@
  * Joined message handler
  */
 
-import type { ParticipantInfo } from '@mediasoup-lib/shared';
+import type { ParticipantInfo, RtpCapabilities } from '@mediasoup-lib/shared';
 import type { TrackSubscribeOptions } from '../../types';
 import { BaseHandler } from './BaseHandler';
 import type { HandlerContext } from './types';
 import { LocalParticipantImpl } from '../LocalParticipant';
 import { RemoteParticipantImpl } from '../Participant';
+import type { RoomClient } from '../RoomClient';
 
 export class JoinedHandler extends BaseHandler {
   public readonly type = 'joined';
 
-  public handle(context: HandlerContext, message: any): void {
-    const client = context.client as any;
+  public handle(context: HandlerContext, message: Record<string, unknown>): void {
+    const client = context.client as RoomClient;
 
     // Set room info and RTP capabilities
-    client.roomInfo = message.room;
-    client.rtpCapabilities = message.rtpCapabilities;
+    client.setRoomInfo(message.room as never);
+    client.setRtpCapabilities(message.rtpCapabilities as RtpCapabilities | null);
 
     // Create local participant
-    client.localParticipant = new LocalParticipantImpl(message.participant);
-    client.localParticipant.setPublishDataCallback(async (data: any, kind: any) => {
+    const localParticipant = new LocalParticipantImpl(message.participant as ParticipantInfo);
+    client.setLocalParticipant(localParticipant);
+
+    localParticipant.setPublishDataCallback(async (data: unknown, kind: 'reliable' | 'lossy') => {
       client.send({
         type: 'data',
         kind,
@@ -30,34 +33,36 @@ export class JoinedHandler extends BaseHandler {
     });
 
     // Set camera/microphone callbacks
-    client.localParticipant.setEnableCameraCallback(() => client.enableCamera());
-    client.localParticipant.setDisableCameraCallback(() => client.disableCamera());
-    client.localParticipant.setEnableMicrophoneCallback(() => client.enableMicrophone());
-    client.localParticipant.setDisableMicrophoneCallback(() => client.disableMicrophone());
+    localParticipant.setEnableCameraCallback((deviceId?: string) => client.enableCamera(deviceId));
+    localParticipant.setDisableCameraCallback(() => client.disableCamera());
+    localParticipant.setEnableMicrophoneCallback((deviceId?: string) =>
+      client.enableMicrophone(deviceId)
+    );
+    localParticipant.setDisableMicrophoneCallback(() => client.disableMicrophone());
 
-    this.emit(context, 'local-participant-joined', client.localParticipant);
+    this.emit(context, 'local-participant-joined', localParticipant);
 
     // Add existing participants
-    message.otherParticipants.forEach((info: ParticipantInfo) => {
+    (message.otherParticipants as ParticipantInfo[]).forEach((info: ParticipantInfo) => {
       const participant = new RemoteParticipantImpl(info);
       participant.setSubscribeCallback(
         async (sid: string, subscribed: boolean, options?: TrackSubscribeOptions) => {
           if (subscribed) {
-            client.subscribeToTrack(sid, options);
+            await client.subscribeToTrack(sid, options);
           } else {
-            client.unsubscribeFromTrack(sid);
+            await client.unsubscribeFromTrack(sid);
           }
         }
       );
-      client.participants.set(info.sid, participant);
+      client.addParticipant(participant);
       this.emit(context, 'participant-joined', participant);
     });
 
     // Auto-subscribe to all existing tracks if enabled
-    if (client.options.autoSubscribe !== false) {
+    if ((client.options as { autoSubscribe?: boolean }).autoSubscribe !== false) {
       // Initialize WebRTC first
       client
-        .initializeWebRTC()
+        .ensureWebRTCInitialized()
         .then(() => client.subscribeToAllTracks())
         .then(() => console.log('Auto-subscribed to all existing tracks'))
         .catch((error: Error) =>

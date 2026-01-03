@@ -626,8 +626,9 @@ export interface LocalParticipant extends Omit<
 
   /**
    * Enable camera (video)
+   * @param deviceId - Optional specific device ID to use. If not provided, uses default camera.
    */
-  enableCamera(): Promise<void>;
+  enableCamera(deviceId?: string): Promise<void>;
 
   /**
    * Disable camera (video)
@@ -636,13 +637,24 @@ export interface LocalParticipant extends Omit<
 
   /**
    * Enable microphone (audio)
+   * @param deviceId - Optional specific device ID to use. If not provided, uses default microphone.
    */
-  enableMicrophone(): Promise<void>;
+  enableMicrophone(deviceId?: string): Promise<void>;
 
   /**
    * Disable microphone (audio)
    */
   disableMicrophone(): Promise<void>;
+
+  /**
+   * List available microphones
+   */
+  listAvailableMicrophones(): Promise<MediaDeviceInfo[]>;
+
+  /**
+   * List available cameras
+   */
+  listAvailableCameras(): Promise<MediaDeviceInfo[]>;
 
   /**
    * Add event listener
