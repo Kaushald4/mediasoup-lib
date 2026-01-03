@@ -5,11 +5,12 @@
 import { ErrorCode } from '@mediasoup-lib/shared';
 import { BaseHandler } from './BaseHandler';
 import type { HandlerContext } from './types';
+import type { CreateTransportMessage } from '@mediasoup-lib/shared';
 
 export class CreateWebRtcTransportHandler extends BaseHandler {
   public readonly type = 'create_transport';
 
-  public async handle(context: HandlerContext, message: any): Promise<void> {
+  public async handle(context: HandlerContext, message: CreateTransportMessage): Promise<void> {
     if (!this.validateParticipant(context)) {
       this.sendError(context.ws, ErrorCode.InvalidRequest, 'Not joined to room');
       return;

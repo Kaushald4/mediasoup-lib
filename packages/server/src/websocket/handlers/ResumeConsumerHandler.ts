@@ -4,11 +4,12 @@
 
 import { BaseHandler } from './BaseHandler';
 import type { HandlerContext } from './types';
+import type { ResumeConsumerMessage } from '@mediasoup-lib/shared';
 
 export class ResumeConsumerHandler extends BaseHandler {
   public readonly type = 'resume_consumer';
 
-  public async handle(context: HandlerContext, message: any): Promise<void> {
+  public async handle(context: HandlerContext, message: ResumeConsumerMessage): Promise<void> {
     if (!this.validateParticipant(context)) {
       return;
     }

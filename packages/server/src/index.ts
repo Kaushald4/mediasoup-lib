@@ -3,21 +3,27 @@
  */
 
 import http from 'http';
-import express from 'express';
+import express, { Application, Request, Response, NextFunction } from 'express';
 import { getConfig } from './config';
-import { createWorker } from './sfu';
+import { createWorker, MediasoupWorker } from './sfu';
 import { RoomManager } from './sfu';
 import { WebSocketServer } from './websocket';
 import { RedisManager } from './redis';
 import { routes } from './api';
 
+interface ServerInfo {
+  name: string;
+  version: string;
+  status: string;
+}
+
 /**
  * Main server class
  */
 class MediasoupServer {
-  private app: express.Application;
+  private app: Application;
   private httpServer: http.Server;
-  private workers: any[];
+  private workers: MediasoupWorker[];
   private roomManager!: RoomManager;
   private redisManager: RedisManager | null;
   private wsServer!: WebSocketServer;
@@ -41,13 +47,14 @@ class MediasoupServer {
     this.app.use(express.urlencoded({ extended: true }));
 
     // CORS
-    this.app.use((req: any, res: any, next: any) => {
+    this.app.use((req: Request, res: Response, next: NextFunction): void => {
       res.header('Access-Control-Allow-Origin', '*');
       res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
       res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
       if (req.method === 'OPTIONS') {
-        return res.sendStatus(200);
+        res.sendStatus(200);
+        return;
       }
       next();
     });
@@ -63,7 +70,7 @@ class MediasoupServer {
     this.app.use('/api', routes);
 
     // Root endpoint
-    this.app.get('/', (_req: any, res: any) => {
+    this.app.get('/', (_req: Request<unknown, ServerInfo>, res: Response<ServerInfo>) => {
       res.json({
         name: 'Mediasoup Server',
         version: '0.1.0',
@@ -137,6 +144,7 @@ class MediasoupServer {
     for (const worker of this.workers) {
       await worker.close();
     }
+    this.workers = [];
 
     // Close Redis
     if (this.redisManager) {

@@ -5,11 +5,12 @@
 import { CLIENT_EVENTS, ErrorCode } from '@mediasoup-lib/shared';
 import { BaseHandler } from './BaseHandler';
 import type { HandlerContext } from './types';
+import type { PublishMessage } from '@mediasoup-lib/shared';
 
 export class PublishHandler extends BaseHandler {
   public readonly type = CLIENT_EVENTS.PUBLISH;
 
-  public async handle(context: HandlerContext, message: any): Promise<void> {
+  public async handle(context: HandlerContext, message: PublishMessage): Promise<void> {
     if (!this.validateParticipant(context)) {
       this.sendError(context.ws, ErrorCode.InvalidRequest, 'Not joined to room');
       return;
@@ -36,20 +37,16 @@ export class PublishHandler extends BaseHandler {
         return;
       }
 
-      // Create producer
+      // Create producer - cast rtpParameters to mediasoup type
       const producer = await transport.produce({
         kind,
-        rtpParameters,
+        rtpParameters: rtpParameters as any,
         appData,
       });
 
       // Add producer to participant
-      const track = participant.addProducer(
-        producer.id,
-        producer,
-        kind,
-        appData?.source || (kind === 'audio' ? 'microphone' : 'camera')
-      );
+      const source = (appData?.source as string) || (kind === 'audio' ? 'microphone' : 'camera');
+      const track = participant.addProducer(producer.id, producer, kind, source as any);
 
       // Notify other participants
       context.broadcast(

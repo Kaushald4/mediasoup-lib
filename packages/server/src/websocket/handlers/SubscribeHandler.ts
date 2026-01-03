@@ -5,11 +5,12 @@
 import { CLIENT_EVENTS, ErrorCode } from '@mediasoup-lib/shared';
 import { BaseHandler } from './BaseHandler';
 import type { HandlerContext } from './types';
+import type { SubscribeMessage } from '@mediasoup-lib/shared';
 
 export class SubscribeHandler extends BaseHandler {
   public readonly type = CLIENT_EVENTS.SUBSCRIBE;
 
-  public async handle(context: HandlerContext, message: any): Promise<void> {
+  public async handle(context: HandlerContext, message: SubscribeMessage): Promise<void> {
     if (!this.validateParticipant(context)) {
       this.sendError(context.ws, ErrorCode.InvalidRequest, 'Not joined to room');
       return;
@@ -36,10 +37,10 @@ export class SubscribeHandler extends BaseHandler {
         return;
       }
 
-      // Create consumer
+      // Create consumer - cast rtpCapabilities to mediasoup type
       const consumer = await transport.consume({
         producerId,
-        rtpCapabilities,
+        rtpCapabilities: rtpCapabilities as any,
         paused: true,
       });
 
@@ -52,7 +53,7 @@ export class SubscribeHandler extends BaseHandler {
         id: consumer.id,
         producerId,
         kind: consumer.kind,
-        rtpParameters: consumer.rtpParameters,
+        rtpParameters: consumer.rtpParameters as any,
         trackSid: producerId,
       });
 

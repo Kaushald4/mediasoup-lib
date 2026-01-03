@@ -2,15 +2,16 @@
  * Join room message handler
  */
 
-import { CLIENT_EVENTS, ErrorCode } from '@mediasoup-lib/shared';
+import { CLIENT_EVENTS, ErrorCode, ConnectionState } from '@mediasoup-lib/shared';
 import { validateToken } from '../../auth';
 import { BaseHandler } from './BaseHandler';
 import type { HandlerContext } from './types';
+import type { JoinMessage } from '@mediasoup-lib/shared';
 
 export class JoinHandler extends BaseHandler {
   public readonly type = CLIENT_EVENTS.JOIN;
 
-  public async handle(context: HandlerContext, message: any): Promise<void> {
+  public async handle(context: HandlerContext, message: JoinMessage): Promise<void> {
     const { room: roomName, token, metadata } = message;
 
     // Validate token
@@ -58,13 +59,14 @@ export class JoinHandler extends BaseHandler {
     );
 
     participant.setSocketId(context.ws.socketId);
-    participant.setState('connected' as any);
+    participant.setState(ConnectionState.Connected);
     room.addParticipant(participant);
 
     context.ws.participantSid = participant.sid;
     context.ws.roomSid = room.sid;
 
     // Send joined message with RTP capabilities
+    const mediasoupRtpCapabilities = room.getRtpCapabilities();
     this.send(context.ws, {
       type: 'joined',
       room: room.getInfo(),
@@ -73,7 +75,10 @@ export class JoinHandler extends BaseHandler {
         .getParticipants()
         .filter((p) => p.sid !== participant.sid)
         .map((p) => p.getInfo()),
-      rtpCapabilities: room.getRtpCapabilities() as any,
+      rtpCapabilities: {
+        codecs: mediasoupRtpCapabilities.codecs || [],
+        headerExtensions: mediasoupRtpCapabilities.headerExtensions || [],
+      },
     });
 
     // Notify other participants

@@ -3,6 +3,7 @@
  */
 
 import type { HandlerContext, MessageHandler, WebSocketConnection } from './types';
+import type { ClientMessage, ServerMessage } from '@mediasoup-lib/shared';
 
 /**
  * Abstract base class for message handlers
@@ -14,13 +15,13 @@ export abstract class BaseHandler implements MessageHandler {
   /**
    * Handle the message
    */
-  public abstract handle(context: HandlerContext, message: any): Promise<void>;
+  public abstract handle(context: HandlerContext, message: ClientMessage): Promise<void>;
 
   /**
    * Send a message to the client
    */
-  protected send(ws: WebSocketConnection, message: any): void {
-    if ((ws as any).readyState === 1) {
+  protected send(ws: WebSocketConnection, message: ServerMessage): void {
+    if (ws.readyState === 1) {
       // WebSocket.OPEN = 1
       ws.send(JSON.stringify(message));
     }

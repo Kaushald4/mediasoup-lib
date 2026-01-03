@@ -108,6 +108,81 @@ export interface DataMessage {
 }
 
 /**
+ * Create WebRTC transport message (new naming)
+ */
+export interface CreateWebRtcTransportMessage {
+  type: 'create_webrtc_transport';
+  direction: 'send' | 'recv';
+}
+
+/**
+ * Connect WebRTC transport message (new naming)
+ */
+export interface ConnectWebRtcTransportMessage {
+  type: 'connect_webrtc_transport';
+  transportId: string;
+  dtlsParameters: DtlsParameters;
+}
+
+/**
+ * Track published message (notification to others)
+ */
+export interface TrackPublishedMessage {
+  type: 'track_published';
+  participantSid: string;
+  track: TrackInfo;
+}
+
+/**
+ * Track unpublished message
+ */
+export interface TrackUnpublishedMessage {
+  type: 'track_unpublished';
+  participantSid: string;
+  trackSid: string;
+}
+
+/**
+ * Track subscribed message
+ */
+export interface TrackSubscribedMessage {
+  type: 'track_subscribed';
+  id: string;
+  producerId: string;
+  kind: string; // Allow 'audio' | 'video' from mediasoup
+  rtpParameters: RtpParameters;
+  trackSid: string;
+}
+
+/**
+ * Track unsubscribed message
+ */
+export interface TrackUnsubscribedMessage {
+  type: 'track_unsubscribed';
+  trackSid: string;
+}
+
+/**
+ * Track muted message
+ */
+export interface TrackMutedMessage {
+  type: 'track_muted';
+  participantSid: string;
+  trackSid: string;
+  muted: boolean;
+}
+
+/**
+ * Track unmuted message
+ */
+export interface TrackUnmutedMessage {
+  type: 'track_unmuted';
+  participantSid: string;
+  trackSid: string;
+  muted: boolean;
+}
+
+/**
  * Client message union
  */
 export type ClientMessage =
@@ -164,6 +239,14 @@ export interface TransportCreatedMessage {
   iceCandidates: IceCandidate[];
   dtlsParameters: DtlsParameters;
   direction: 'send' | 'recv';
+}
+
+/**
+ * Transport connected message
+ */
+export interface TransportConnectedMessage {
+  type: 'transport_connected';
+  transportId: string;
 }
 
 /**
@@ -246,6 +329,7 @@ export interface ErrorMessage {
 export type ServerMessage =
   | JoinedMessage
   | TransportCreatedMessage
+  | TransportConnectedMessage
   | ParticipantJoinedMessage
   | ParticipantLeftMessage
   | TrackPublishedMessage
@@ -348,7 +432,7 @@ export interface RtpHeaderExtension {
   uri: string;
   preferredId: number;
   preferredEncrypt?: boolean;
-  direction?: 'sendrecv' | 'send' | 'recv';
+  direction?: 'sendrecv' | 'send' | 'recv' | 'sendonly' | 'recvonly' | 'inactive';
 }
 
 /**

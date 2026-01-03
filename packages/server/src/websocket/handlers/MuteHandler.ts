@@ -5,11 +5,12 @@
 import { CLIENT_EVENTS } from '@mediasoup-lib/shared';
 import { BaseHandler } from './BaseHandler';
 import type { HandlerContext } from './types';
+import type { MuteMessage } from '@mediasoup-lib/shared';
 
 export class MuteHandler extends BaseHandler {
   public readonly type = CLIENT_EVENTS.MUTE;
 
-  public async handle(context: HandlerContext, message: any): Promise<void> {
+  public async handle(context: HandlerContext, message: MuteMessage): Promise<void> {
     if (!this.validateParticipant(context)) {
       return;
     }

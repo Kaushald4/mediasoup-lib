@@ -7,7 +7,7 @@ import type { RoomManager } from '../../sfu';
 import type { RedisManager } from '../../redis';
 import type { JwtConfig } from '../../config';
 import type { Room } from '../../sfu/Room';
-import type { ServerMessage } from '@mediasoup-lib/shared';
+import type { ServerMessage, ClientMessage } from '@mediasoup-lib/shared';
 
 /**
  * Extended WebSocket connection with additional data
@@ -30,7 +30,7 @@ export type BroadcastFunction = (
 /**
  * Send helper function type
  */
-export type SendFunction = (ws: WebSocketConnection, message: any) => void;
+export type SendFunction = (ws: WebSocketConnection, message: ServerMessage) => void;
 
 /**
  * Send error helper function type
@@ -54,7 +54,7 @@ export interface HandlerContext {
  */
 export interface MessageHandler {
   type: string;
-  handle(context: HandlerContext, message: any): Promise<void>;
+  handle(context: HandlerContext, message: ClientMessage): Promise<void>;
 }
 
 /**

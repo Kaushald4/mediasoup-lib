@@ -5,11 +5,12 @@
 import { CLIENT_EVENTS } from '@mediasoup-lib/shared';
 import { BaseHandler } from './BaseHandler';
 import type { HandlerContext } from './types';
+import type { LeaveMessage } from '@mediasoup-lib/shared';
 
 export class LeaveHandler extends BaseHandler {
   public readonly type = CLIENT_EVENTS.LEAVE;
 
-  public async handle(context: HandlerContext): Promise<void> {
+  public async handle(context: HandlerContext, _message: LeaveMessage): Promise<void> {
     if (!context.ws.roomSid || !context.ws.participantSid) {
       return;
     }
