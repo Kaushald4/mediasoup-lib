@@ -6,7 +6,7 @@
  */
 
 import type { RoomInfo, RtpCapabilities } from '@mediasoup-lib/shared';
-import { TrackKind, TrackSource, ConnectionState } from '@mediasoup-lib/shared';
+import { ConnectionState } from '@mediasoup-lib/shared';
 import type {
   RoomClientOptions,
   RoomEvents,
@@ -19,7 +19,6 @@ import type {
 import { LocalParticipantImpl } from './LocalParticipant';
 import { RemoteParticipantImpl } from './Participant';
 import { LocalTrack as LocalTrackImpl } from './LocalTrack';
-import { LocalTrackPublicationImpl } from './TrackPublication';
 import {
   EventBus,
   ParticipantStore,
@@ -161,65 +160,18 @@ export class RoomClient {
       throw new Error('Failed to create video track');
     }
 
-    // Publish via track controller
-    const { sid } = await this.trackController.publishLocalTrack(
-      mediaTrack,
-      TrackKind.Video,
-      TrackSource.Camera
-    );
+    // Delegate to TrackController - handles all domain construction logic
+    await this.trackController.enableCamera(mediaTrack);
 
-    // Create LocalTrack object
-    const localTrack = new LocalTrackImpl(
-      {
-        sid,
-        kind: TrackKind.Video,
-        source: TrackSource.Camera,
-        muted: false,
-      },
-      mediaTrack
-    );
-
-    // Create publication
-    const publication = new LocalTrackPublicationImpl(
-      {
-        sid,
-        kind: TrackKind.Video,
-        source: TrackSource.Camera,
-        muted: false,
-        simulcast: false,
-      },
-      'camera',
-      localTrack
-    );
-
-    // Add to local participant
-    (
-      (localParticipant as LocalParticipantImpl).tracks as Map<string, LocalTrackPublicationImpl>
-    ).set(publication.sid, publication);
-
-    console.log('Camera enabled, track SID:', sid, deviceId ? `device: ${deviceId}` : '');
+    console.log('Camera enabled', deviceId ? `device: ${deviceId}` : '');
   }
 
   /**
    * Disable camera (video)
    */
   async disableCamera(): Promise<void> {
-    await this.trackController.unpublishLocalTrack(TrackKind.Video);
-
-    const localParticipant = this.participantStore.getLocalParticipant();
-    if (localParticipant) {
-      const producer = this.trackController.getLocalVideoProducer();
-      if (producer) {
-        (
-          (localParticipant as LocalParticipantImpl).tracks as Map<
-            string,
-            LocalTrackPublicationImpl
-          >
-        ).delete(producer.id);
-      }
-    }
-
-    console.log('Camera disabled');
+    // Delegate to TrackController - handles cleanup
+    await this.trackController.disableCamera();
   }
 
   /**
@@ -244,65 +196,18 @@ export class RoomClient {
       throw new Error('Failed to create audio track');
     }
 
-    // Publish via track controller
-    const { sid } = await this.trackController.publishLocalTrack(
-      mediaTrack,
-      TrackKind.Audio,
-      TrackSource.Microphone
-    );
+    // Delegate to TrackController - handles all domain construction logic
+    await this.trackController.enableMicrophone(mediaTrack);
 
-    // Create LocalTrack object
-    const localTrack = new LocalTrackImpl(
-      {
-        sid,
-        kind: TrackKind.Audio,
-        source: TrackSource.Microphone,
-        muted: false,
-      },
-      mediaTrack
-    );
-
-    // Create publication
-    const publication = new LocalTrackPublicationImpl(
-      {
-        sid,
-        kind: TrackKind.Audio,
-        source: TrackSource.Microphone,
-        muted: false,
-        simulcast: false,
-      },
-      'microphone',
-      localTrack
-    );
-
-    // Add to local participant
-    (
-      (localParticipant as LocalParticipantImpl).tracks as Map<string, LocalTrackPublicationImpl>
-    ).set(publication.sid, publication);
-
-    console.log('Microphone enabled, track SID:', sid, deviceId ? `device: ${deviceId}` : '');
+    console.log('Microphone enabled', deviceId ? `device: ${deviceId}` : '');
   }
 
   /**
    * Disable microphone (audio)
    */
   async disableMicrophone(): Promise<void> {
-    await this.trackController.unpublishLocalTrack(TrackKind.Audio);
-
-    const localParticipant = this.participantStore.getLocalParticipant();
-    if (localParticipant) {
-      const producer = this.trackController.getLocalAudioProducer();
-      if (producer) {
-        (
-          (localParticipant as LocalParticipantImpl).tracks as Map<
-            string,
-            LocalTrackPublicationImpl
-          >
-        ).delete(producer.id);
-      }
-    }
-
-    console.log('Microphone disabled');
+    // Delegate to TrackController - handles cleanup
+    await this.trackController.disableMicrophone();
   }
 
   /**

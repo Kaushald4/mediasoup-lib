@@ -2,11 +2,19 @@
  * TrackController - Manages track publishing and subscription
  *
  * Handles track publication, subscription, and state management.
+ * Provides high-level methods for enabling/disabling camera and microphone.
  */
 
-import type { TrackSource, TrackKind } from '@mediasoup-lib/shared';
-import type { RemoteTrack, RemoteTrackPublication, TrackSubscribeOptions } from '../../types';
+import { TrackSource, TrackKind } from '@mediasoup-lib/shared';
+import type {
+  RemoteTrack,
+  RemoteTrackPublication,
+  TrackSubscribeOptions,
+  LocalTrackPublication,
+} from '../../types';
 import { RemoteTrack as RemoteTrackImpl } from '../RemoteTrack';
+import { LocalTrack as LocalTrackImpl } from '../LocalTrack';
+import { LocalTrackPublicationImpl } from '../TrackPublication';
 import type { types } from 'mediasoup-client';
 
 /**
@@ -49,6 +57,8 @@ export class TrackController {
         sid: string;
         identity: string;
       } | null;
+      addLocalTrack: (publication: LocalTrackPublication) => void;
+      removeLocalTrackByProducerId: (producerId: string) => LocalTrackPublication | null;
     },
     private readonly emitEvent: (event: string, data: unknown) => void
   ) {}
@@ -205,5 +215,123 @@ export class TrackController {
    */
   getLocalVideoProducer(): types.Producer | null {
     return this.localVideoTrack.producer;
+  }
+
+  /**
+   * Enable camera (video)
+   * High-level method that handles all domain construction logic
+   * @param mediaTrack - The media track to publish
+   * @returns The publication SID
+   */
+  async enableCamera(mediaTrack: MediaStreamTrack): Promise<string> {
+    // Publish via WebRTC
+    const { sid } = await this.publishLocalTrack(mediaTrack, TrackKind.Video, TrackSource.Camera);
+
+    // Create domain objects (LocalTrack and LocalTrackPublication)
+    const localTrack = new LocalTrackImpl(
+      {
+        sid,
+        kind: TrackKind.Video,
+        source: TrackSource.Camera,
+        muted: false,
+      },
+      mediaTrack
+    );
+
+    const publication = new LocalTrackPublicationImpl(
+      {
+        sid,
+        kind: TrackKind.Video,
+        source: TrackSource.Camera,
+        muted: false,
+        simulcast: false,
+      },
+      'camera',
+      localTrack
+    );
+
+    // Add to participant store
+    this.participantStore.addLocalTrack(publication);
+
+    console.log('Camera enabled, track SID:', sid);
+    return sid;
+  }
+
+  /**
+   * Disable camera (video)
+   * High-level method that handles cleanup
+   */
+  async disableCamera(): Promise<void> {
+    // Unpublish via WebRTC
+    await this.unpublishLocalTrack(TrackKind.Video);
+
+    // Remove from participant store
+    const producer = this.getLocalVideoProducer();
+    if (producer) {
+      this.participantStore.removeLocalTrackByProducerId(producer.id);
+    }
+
+    console.log('Camera disabled');
+  }
+
+  /**
+   * Enable microphone (audio)
+   * High-level method that handles all domain construction logic
+   * @param mediaTrack - The media track to publish
+   * @returns The publication SID
+   */
+  async enableMicrophone(mediaTrack: MediaStreamTrack): Promise<string> {
+    // Publish via WebRTC
+    const { sid } = await this.publishLocalTrack(
+      mediaTrack,
+      TrackKind.Audio,
+      TrackSource.Microphone
+    );
+
+    // Create domain objects (LocalTrack and LocalTrackPublication)
+    const localTrack = new LocalTrackImpl(
+      {
+        sid,
+        kind: TrackKind.Audio,
+        source: TrackSource.Microphone,
+        muted: false,
+      },
+      mediaTrack
+    );
+
+    const publication = new LocalTrackPublicationImpl(
+      {
+        sid,
+        kind: TrackKind.Audio,
+        source: TrackSource.Microphone,
+        muted: false,
+        simulcast: false,
+      },
+      'microphone',
+      localTrack
+    );
+
+    // Add to participant store
+    this.participantStore.addLocalTrack(publication);
+
+    console.log('Microphone enabled, track SID:', sid);
+    return sid;
+  }
+
+  /**
+   * Disable microphone (audio)
+   * High-level method that handles cleanup
+   */
+  async disableMicrophone(): Promise<void> {
+    // Unpublish via WebRTC
+    await this.unpublishLocalTrack(TrackKind.Audio);
+
+    // Remove from participant store
+    const producer = this.getLocalAudioProducer();
+    if (producer) {
+      this.participantStore.removeLocalTrackByProducerId(producer.id);
+    }
+
+    console.log('Microphone disabled');
   }
 }
