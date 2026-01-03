@@ -6,10 +6,13 @@
 export const CLIENT_EVENTS = {
   JOIN: 'join',
   LEAVE: 'leave',
+  CREATE_WEBRTC_TRANSPORT: 'create_webrtc_transport',
+  CONNECT_TRANSPORT: 'connect_transport',
   PUBLISH: 'publish',
   UNPUBLISH: 'unpublish',
   SUBSCRIBE: 'subscribe',
   UNSUBSCRIBE: 'unsubscribe',
+  RESUME_CONSUMER: 'resume_consumer',
   MUTE: 'mute',
   DATA: 'data',
 } as const;

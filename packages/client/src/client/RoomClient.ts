@@ -1,8 +1,10 @@
 /**
  * RoomClient - Main client class for connecting to a mediasoup room
+ *
+ * Refactored to use the Command pattern with HandlerRegistry for better maintainability.
  */
 
-import type { RoomInfo, ParticipantInfo, TrackSource } from '@mediasoup-lib/shared';
+import type { RoomInfo, TrackSource } from '@mediasoup-lib/shared';
 import type {
   RoomClientOptions,
   RoomEvents,
@@ -21,6 +23,7 @@ import { LocalTrackPublicationImpl } from './TrackPublication';
 import { MediaManager } from '../media';
 import { WebRTCManager } from '../webrtc/WebRTCManager';
 import type { types } from 'mediasoup-client';
+import { handlerRegistry } from './handlers';
 
 /**
  * RoomClient - Main client class for connecting to a mediasoup room
@@ -568,274 +571,15 @@ export class RoomClient {
 
   /**
    * Handle incoming WebSocket message
+   *
+   * Delegates message handling to the HandlerRegistry.
    */
   private handleMessage(message: any): void {
     // Emit message event for WebRTC signaling
     this.emit('message', message);
 
-    switch (message.type) {
-      case 'joined':
-        this.handleJoined(message);
-        break;
-
-      case 'participant_joined':
-        this.handleParticipantJoined(message);
-        break;
-
-      case 'participant_left':
-        this.handleParticipantLeft(message);
-        break;
-
-      case 'transport_created':
-        // Handled by WebRTCManager
-        break;
-
-      case 'track_published':
-        this.handleTrackPublished(message);
-        break;
-
-      case 'track_unpublished':
-        this.handleTrackUnpublished(message);
-        break;
-
-      case 'track_subscribed':
-        this.handleTrackSubscribed(message);
-        break;
-
-      case 'track_unsubscribed':
-        this.handleTrackUnsubscribed(message);
-        break;
-
-      case 'track_muted':
-        this.handleTrackMuted(message);
-        break;
-
-      case 'track_unmuted':
-        this.handleTrackUnmuted(message);
-        break;
-
-      case 'data':
-        this.handleData(message);
-        break;
-
-      case 'error':
-        this.handleError(message);
-        break;
-
-      default:
-        console.warn('Unknown message type:', message.type);
-    }
-  }
-
-  /**
-   * Handle joined message
-   */
-  private async handleJoined(message: any): Promise<void> {
-    this.roomInfo = message.room;
-    this.rtpCapabilities = message.rtpCapabilities;
-
-    // Create local participant
-    this.localParticipant = new LocalParticipantImpl(message.participant);
-    this.localParticipant.setPublishDataCallback(async (data, kind) => {
-      this.send({
-        type: 'data',
-        kind,
-        value: data,
-      });
-    });
-
-    // Set camera/microphone callbacks
-    this.localParticipant.setEnableCameraCallback(() => this.enableCamera());
-    this.localParticipant.setDisableCameraCallback(() => this.disableCamera());
-    this.localParticipant.setEnableMicrophoneCallback(() => this.enableMicrophone());
-    this.localParticipant.setDisableMicrophoneCallback(() => this.disableMicrophone());
-
-    this.emit('local-participant-joined', this.localParticipant);
-
-    // Add existing participants
-    message.otherParticipants.forEach((info: ParticipantInfo) => {
-      const participant = new RemoteParticipantImpl(info);
-      participant.setSubscribeCallback(
-        async (sid: string, subscribed: boolean, options?: TrackSubscribeOptions) => {
-          if (subscribed) {
-            this.subscribeToTrack(sid, options);
-          } else {
-            this.unsubscribeFromTrack(sid);
-          }
-        }
-      );
-      this.participants.set(info.sid, participant);
-      this.emit('participant-joined', participant);
-    });
-
-    // Auto-subscribe to all existing tracks if enabled
-    if (this.options.autoSubscribe !== false) {
-      // Initialize WebRTC first
-      try {
-        await this.initializeWebRTC();
-        await this.subscribeToAllTracks();
-        console.log('Auto-subscribed to all existing tracks');
-      } catch (error) {
-        console.error('Failed to auto-subscribe to existing tracks:', error);
-      }
-    }
-  }
-
-  /**
-   * Handle participant joined message
-   */
-  private handleParticipantJoined(message: any): void {
-    const participant = new RemoteParticipantImpl(message.participant);
-    participant.setSubscribeCallback(
-      async (sid: string, subscribed: boolean, options?: TrackSubscribeOptions) => {
-        if (subscribed) {
-          this.subscribeToTrack(sid, options);
-        } else {
-          this.unsubscribeFromTrack(sid);
-        }
-      }
-    );
-    this.participants.set(message.participant.sid, participant);
-    this.emit('participant-joined', participant);
-  }
-
-  /**
-   * Handle participant left message
-   */
-  private handleParticipantLeft(message: any): void {
-    const participant = this.participants.get(message.participantSid);
-    if (participant) {
-      participant.removeAllListeners();
-      this.participants.delete(message.participantSid);
-      this.emit('participant-left', participant);
-    }
-  }
-
-  /**
-   * Handle track published message
-   */
-  private async handleTrackPublished(message: any): Promise<void> {
-    const participant = this.participants.get(message.participantSid);
-    if (participant) {
-      // Update participant with new track
-      const info = participant.getInfo();
-      info.tracks.push(message.track);
-      participant.updateInfo(info);
-
-      // Emit track published event
-      this.emit('track-published', { publication: message.track, participant });
-
-      // Auto-subscribe if enabled
-      if (this.options.autoSubscribe !== false) {
-        // Initialize WebRTC if not already initialized
-        if (!this.isWebRTCInitialized) {
-          await this.initializeWebRTC();
-        }
-
-        // Subscribe to the new track
-        try {
-          await this.subscribeToTrack(message.track.sid);
-          console.log(`Auto-subscribed to track ${message.track.sid}`);
-        } catch (error) {
-          console.error('Failed to auto-subscribe to track:', error);
-        }
-      }
-    }
-  }
-
-  /**
-   * Handle track unpublished message
-   */
-  private handleTrackUnpublished(message: any): void {
-    const participant = this.participants.get(message.participantSid);
-    if (participant) {
-      // Get the publication before removing it
-      const publication = participant.getTrack(message.trackSid);
-
-      // Remove the track from participant's tracks map
-      (participant as any).tracks.delete(message.trackSid);
-
-      // Emit track-unpublished event
-      if (publication) {
-        (publication as any).clearTrack();
-        this.emit('track-unpublished', { publication, participant });
-      }
-
-      console.log(
-        `Track unpublished: ${message.trackSid} from participant ${participant.identity}`
-      );
-    }
-  }
-
-  /**
-   * Handle track subscribed message
-   */
-  private handleTrackSubscribed(message: any): void {
-    // This is handled by subscribeToTrack method
-    console.log('Track subscribed:', message);
-  }
-
-  /**
-   * Handle track unsubscribed message
-   */
-  private handleTrackUnsubscribed(message: any): void {
-    const participant = this.participants.get(message.participantSid);
-    if (participant) {
-      const publication = participant.getTrack(message.trackSid);
-      if (publication) {
-        const track = publication.track;
-        (publication as any).clearTrack();
-        if (track) {
-          (track as RemoteTrackImpl).emitUnsubscribed();
-          this.emit('track-unsubscribed', { track, publication, participant });
-        }
-      }
-    }
-  }
-
-  /**
-   * Handle track muted message
-   */
-  private handleTrackMuted(message: any): void {
-    const participant = this.participants.get(message.participantSid);
-    if (participant) {
-      participant.updateInfo(message.participant);
-      const publication = participant.getTrack(message.trackSid);
-      if (publication && publication.track) {
-        this.emit('track-muted', { track: publication.track, participant });
-      }
-    }
-  }
-
-  /**
-   * Handle track unmuted message
-   */
-  private handleTrackUnmuted(message: any): void {
-    const participant = this.participants.get(message.participantSid);
-    if (participant) {
-      participant.updateInfo(message.participant);
-      const publication = participant.getTrack(message.trackSid);
-      if (publication && publication.track) {
-        this.emit('track-unmuted', { track: publication.track, participant });
-      }
-    }
-  }
-
-  /**
-   * Handle data message
-   */
-  private handleData(message: any): void {
-    const participant = this.participants.get(message.participantSid);
-    if (participant) {
-      this.emit('data-received', { data: message.data, participant });
-    }
-  }
-
-  /**
-   * Handle error message
-   */
-  private handleError(message: any): void {
-    this.emit('error', new Error(message.error || 'Unknown error'));
+    // Handle message through registry
+    handlerRegistry.handle({ client: this }, message);
   }
 
   /**
