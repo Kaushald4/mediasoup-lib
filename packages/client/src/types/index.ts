@@ -2,7 +2,7 @@
  * Client-specific types
  */
 
-import type { ConnectionState, TrackKind, DataPacket } from '@mediasoup-lib/shared';
+import type { ConnectionState, TrackKind, DataPacket } from '@bytepulse/pulsewave-shared';
 
 /**
  * Room client options

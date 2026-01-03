@@ -2,11 +2,11 @@
  * Join room message handler
  */
 
-import { CLIENT_EVENTS, ErrorCode, ConnectionState } from '@mediasoup-lib/shared';
+import { CLIENT_EVENTS, ErrorCode, ConnectionState } from '@bytepulse/pulsewave-shared';
 import { validateToken } from '../../auth';
 import { BaseHandler } from './BaseHandler';
 import type { HandlerContext } from './types';
-import type { JoinMessage } from '@mediasoup-lib/shared';
+import type { JoinMessage } from '@bytepulse/pulsewave-shared';
 
 export class JoinHandler extends BaseHandler {
   public readonly type = CLIENT_EVENTS.JOIN;

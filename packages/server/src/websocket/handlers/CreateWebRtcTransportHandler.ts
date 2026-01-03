@@ -2,10 +2,10 @@
  * Create WebRTC transport handler
  */
 
-import { ErrorCode } from '@mediasoup-lib/shared';
+import { ErrorCode } from '@bytepulse/pulsewave-shared';
 import { BaseHandler } from './BaseHandler';
 import type { HandlerContext } from './types';
-import type { CreateTransportMessage } from '@mediasoup-lib/shared';
+import type { CreateTransportMessage } from '@bytepulse/pulsewave-shared';
 
 export class CreateWebRtcTransportHandler extends BaseHandler {
   public readonly type = 'create_transport';

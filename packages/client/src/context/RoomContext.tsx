@@ -10,7 +10,7 @@ import React, {
   useState,
   ReactNode,
 } from 'react';
-import { ConnectionState } from '@mediasoup-lib/shared';
+import { ConnectionState } from '@bytepulse/pulsewave-shared';
 import type { RoomClientOptions, LocalParticipant, RemoteParticipant } from '../types';
 import { RoomClient } from '../client/RoomClient';
 

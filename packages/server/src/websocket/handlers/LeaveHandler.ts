@@ -2,10 +2,10 @@
  * Leave room message handler
  */
 
-import { CLIENT_EVENTS } from '@mediasoup-lib/shared';
+import { CLIENT_EVENTS } from '@bytepulse/pulsewave-shared';
 import { BaseHandler } from './BaseHandler';
 import type { HandlerContext } from './types';
-import type { LeaveMessage } from '@mediasoup-lib/shared';
+import type { LeaveMessage } from '@bytepulse/pulsewave-shared';
 
 export class LeaveHandler extends BaseHandler {
   public readonly type = CLIENT_EVENTS.LEAVE;

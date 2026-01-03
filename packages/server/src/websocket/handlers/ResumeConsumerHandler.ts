@@ -4,7 +4,7 @@
 
 import { BaseHandler } from './BaseHandler';
 import type { HandlerContext } from './types';
-import type { ResumeConsumerMessage } from '@mediasoup-lib/shared';
+import type { ResumeConsumerMessage } from '@bytepulse/pulsewave-shared';
 
 export class ResumeConsumerHandler extends BaseHandler {
   public readonly type = 'resume_consumer';

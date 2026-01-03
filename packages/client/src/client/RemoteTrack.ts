@@ -2,7 +2,7 @@
  * RemoteTrack class for remote media tracks
  */
 
-import type { TrackInfo } from '@mediasoup-lib/shared';
+import type { TrackInfo } from '@bytepulse/pulsewave-shared';
 import type { RemoteTrackEvents } from '../types';
 import { Track } from './Track';
 

@@ -4,7 +4,7 @@
  * Handles WebRTC transport creation, track publishing, and subscription.
  */
 
-import type { RtpCapabilities } from '@mediasoup-lib/shared';
+import type { RtpCapabilities } from '@bytepulse/pulsewave-shared';
 import { WebRTCManager } from '../../webrtc/WebRTCManager';
 import type { types } from 'mediasoup-client';
 

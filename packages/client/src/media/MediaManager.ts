@@ -3,9 +3,9 @@
  */
 
 import type { MediaTrackOptions } from '../types';
-import { TrackKind, TrackSource } from '@mediasoup-lib/shared';
+import { TrackKind, TrackSource } from '@bytepulse/pulsewave-shared';
 import { LocalTrack } from '../client/LocalTrack';
-import type { TrackInfo } from '@mediasoup-lib/shared';
+import type { TrackInfo } from '@bytepulse/pulsewave-shared';
 
 /**
  * MediaManager - Handles device enumeration and media stream acquisition

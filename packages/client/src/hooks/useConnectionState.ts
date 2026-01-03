@@ -3,7 +3,7 @@
  */
 
 import { useMemo } from 'react';
-import type { ConnectionState } from '@mediasoup-lib/shared';
+import type { ConnectionState } from '@bytepulse/pulsewave-shared';
 import { useRoomContext } from '../context';
 
 /**

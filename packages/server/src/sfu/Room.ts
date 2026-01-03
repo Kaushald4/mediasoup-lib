@@ -3,7 +3,7 @@
  */
 
 import { v4 as uuidv4 } from 'uuid';
-import type { RoomInfo, RoomState } from '@mediasoup-lib/shared';
+import type { RoomInfo, RoomState } from '@bytepulse/pulsewave-shared';
 import type { Router, WebRtcTransport, RtpCapabilities } from 'mediasoup/types';
 import type { Participant } from './Participant';
 import type { MediasoupWorker } from './MediasoupWorker';

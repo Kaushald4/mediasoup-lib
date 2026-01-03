@@ -2,10 +2,10 @@
  * Publish track handler
  */
 
-import { CLIENT_EVENTS, ErrorCode } from '@mediasoup-lib/shared';
+import { CLIENT_EVENTS, ErrorCode } from '@bytepulse/pulsewave-shared';
 import { BaseHandler } from './BaseHandler';
 import type { HandlerContext } from './types';
-import type { PublishMessage } from '@mediasoup-lib/shared';
+import type { PublishMessage } from '@bytepulse/pulsewave-shared';
 
 export class PublishHandler extends BaseHandler {
   public readonly type = CLIENT_EVENTS.PUBLISH;

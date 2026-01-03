@@ -2,10 +2,10 @@
  * Unsubscribe from track handler
  */
 
-import { CLIENT_EVENTS } from '@mediasoup-lib/shared';
+import { CLIENT_EVENTS } from '@bytepulse/pulsewave-shared';
 import { BaseHandler } from './BaseHandler';
 import type { HandlerContext } from './types';
-import type { UnsubscribeMessage } from '@mediasoup-lib/shared';
+import type { UnsubscribeMessage } from '@bytepulse/pulsewave-shared';
 
 export class UnsubscribeHandler extends BaseHandler {
   public readonly type = CLIENT_EVENTS.UNSUBSCRIBE;

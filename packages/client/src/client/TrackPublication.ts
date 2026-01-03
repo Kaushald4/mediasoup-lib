@@ -2,7 +2,7 @@
  * TrackPublication classes
  */
 
-import type { TrackInfo, TrackKind, TrackSource } from '@mediasoup-lib/shared';
+import type { TrackInfo, TrackKind, TrackSource } from '@bytepulse/pulsewave-shared';
 import type {
   TrackPublication,
   LocalTrackPublication,

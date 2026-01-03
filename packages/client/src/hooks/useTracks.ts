@@ -4,7 +4,7 @@
 
 import { useMemo } from 'react';
 import type { RemoteTrack, RemoteTrackPublication } from '../types';
-import { TrackKind } from '@mediasoup-lib/shared';
+import { TrackKind } from '@bytepulse/pulsewave-shared';
 import { useRoomContext } from '../context';
 
 /**

@@ -5,7 +5,7 @@
  * Provides high-level methods for enabling/disabling camera and microphone.
  */
 
-import { TrackSource, TrackKind } from '@mediasoup-lib/shared';
+import { TrackSource, TrackKind } from '@bytepulse/pulsewave-shared';
 import type {
   RemoteTrack,
   RemoteTrackPublication,

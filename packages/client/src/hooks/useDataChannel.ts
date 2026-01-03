@@ -3,7 +3,7 @@
  */
 
 import { useCallback } from 'react';
-import type { DataPacket } from '@mediasoup-lib/shared';
+import type { DataPacket } from '@bytepulse/pulsewave-shared';
 import type { RemoteParticipant } from '../types';
 import { useRoomContext } from '../context';
 

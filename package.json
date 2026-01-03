@@ -1,8 +1,8 @@
 {
-  "name": "mediasoup-lib",
+  "name": "pulsewave",
   "version": "0.1.0",
   "private": true,
-  "description": "A LiveKit-style WebRTC wrapper around mediasoup",
+  "description": "PulseWave - A LiveKit-style WebRTC wrapper around mediasoup",
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
@@ -12,7 +12,7 @@
     "clean": "turbo run clean && rm -rf node_modules",
     "changeset": "changeset",
     "version-packages": "changeset version",
-    "release": "turbo run build --filter=@mediasoup-lib/client && changeset publish"
+    "release": "turbo run build --filter=@bytepulse/pulsewave-client && changeset publish"
   },
   "devDependencies": {
     "@changesets/cli": "^2.27.1",

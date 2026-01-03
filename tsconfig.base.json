@@ -3,7 +3,7 @@
     "target": "ES2022",
     "lib": ["ES2022"],
     "module": "ESNext",
-    "moduleResolution": "bundler",
+    "moduleResolution": "node",
     "resolveJsonModule": true,
     "allowJs": true,
     "checkJs": false,
@@ -33,7 +33,10 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "incremental": true
+    "incremental": true,
+    "paths": {
+      "@bytepulse/pulsewave-shared": ["./packages/shared/src"]
+    }
   },
   "exclude": ["node_modules", "dist", "build"]
 }

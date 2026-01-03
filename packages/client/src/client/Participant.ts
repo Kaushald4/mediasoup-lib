@@ -2,7 +2,7 @@
  * Participant classes
  */
 
-import type { ParticipantInfo, ConnectionState } from '@mediasoup-lib/shared';
+import type { ParticipantInfo, ConnectionState } from '@bytepulse/pulsewave-shared';
 import type {
   Participant,
   ParticipantEvents,

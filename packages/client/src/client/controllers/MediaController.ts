@@ -4,7 +4,7 @@
  * Handles media device enumeration, track creation, and device switching.
  */
 
-import { TrackKind, TrackSource } from '@mediasoup-lib/shared';
+import { TrackKind, TrackSource } from '@bytepulse/pulsewave-shared';
 import { MediaManager } from '../../media/MediaManager';
 import type { LocalTrack } from '../../types';
 import { LocalTrack as LocalTrackImpl } from '../LocalTrack';

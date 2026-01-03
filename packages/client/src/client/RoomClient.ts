@@ -5,8 +5,8 @@
  * RoomClient acts as a facade/coordinator, delegating to specialized controllers.
  */
 
-import type { RoomInfo, RtpCapabilities } from '@mediasoup-lib/shared';
-import { ConnectionState } from '@mediasoup-lib/shared';
+import type { RoomInfo, RtpCapabilities } from '@bytepulse/pulsewave-shared';
+import { ConnectionState } from '@bytepulse/pulsewave-shared';
 import type {
   RoomClientOptions,
   RoomEvents,

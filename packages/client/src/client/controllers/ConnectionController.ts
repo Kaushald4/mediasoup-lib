@@ -5,7 +5,7 @@
  */
 
 import type { RoomClientOptions } from '../../types';
-import { ConnectionState } from '@mediasoup-lib/shared';
+import { ConnectionState } from '@bytepulse/pulsewave-shared';
 
 /**
  * Connection state listener type

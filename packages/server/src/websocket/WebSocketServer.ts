@@ -10,8 +10,8 @@ import type { IncomingMessage } from 'http';
 import type { RoomManager } from '../sfu';
 import type { RedisManager } from '../redis';
 import type { JwtConfig } from '../config';
-import type { ServerMessage, ClientMessage } from '@mediasoup-lib/shared';
-import { ErrorCode } from '@mediasoup-lib/shared';
+import type { ServerMessage, ClientMessage } from '@bytepulse/pulsewave-shared';
+import { ErrorCode } from '@bytepulse/pulsewave-shared';
 import type { Room } from '../sfu/Room';
 import { handlerRegistry, type WebSocketConnection } from './handlers';
 

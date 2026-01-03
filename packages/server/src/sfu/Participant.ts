@@ -10,7 +10,7 @@ import {
   TrackInfo,
   TrackKind,
   TrackSource,
-} from '@mediasoup-lib/shared';
+} from '@bytepulse/pulsewave-shared';
 import type { Producer, Consumer, Transport } from 'mediasoup/types';
 import type { Room } from './Room';
 

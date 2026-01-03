@@ -2,7 +2,7 @@
  * Joined message handler
  */
 
-import type { ParticipantInfo, RtpCapabilities } from '@mediasoup-lib/shared';
+import type { ParticipantInfo, RtpCapabilities } from '@bytepulse/pulsewave-shared';
 import type { TrackSubscribeOptions } from '../../types';
 import { BaseHandler } from './BaseHandler';
 import type { HandlerContext } from './types';

@@ -2,7 +2,7 @@
  * LocalParticipant implementation
  */
 
-import type { ParticipantInfo, ConnectionState, TrackSource } from '@mediasoup-lib/shared';
+import type { ParticipantInfo, ConnectionState, TrackSource } from '@bytepulse/pulsewave-shared';
 import type {
   LocalParticipant,
   LocalParticipantEvents,

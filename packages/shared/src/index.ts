@@ -1,5 +1,5 @@
 /**
- * @mediasoup-lib/shared
+ * @bytepulse/pulsewave-shared
  *
  * Shared types and constants for mediasoup-lib
  */

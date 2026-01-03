@@ -2,10 +2,10 @@
  * Connect WebRTC transport handler
  */
 
-import { CLIENT_EVENTS } from '@mediasoup-lib/shared';
+import { CLIENT_EVENTS } from '@bytepulse/pulsewave-shared';
 import { BaseHandler } from './BaseHandler';
 import type { HandlerContext } from './types';
-import type { ConnectTransportMessage } from '@mediasoup-lib/shared';
+import type { ConnectTransportMessage } from '@bytepulse/pulsewave-shared';
 
 export class ConnectTransportHandler extends BaseHandler {
   public readonly type = CLIENT_EVENTS.CONNECT_TRANSPORT;

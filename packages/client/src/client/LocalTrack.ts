@@ -2,7 +2,7 @@
  * LocalTrack class for local media tracks
  */
 
-import type { TrackInfo } from '@mediasoup-lib/shared';
+import type { TrackInfo } from '@bytepulse/pulsewave-shared';
 import type { LocalTrackEvents } from '../types';
 import { Track } from './Track';
 

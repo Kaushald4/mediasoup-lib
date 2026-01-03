@@ -7,7 +7,7 @@ import type { RoomManager } from '../../sfu';
 import type { RedisManager } from '../../redis';
 import type { JwtConfig } from '../../config';
 import type { Room } from '../../sfu/Room';
-import type { ServerMessage, ClientMessage } from '@mediasoup-lib/shared';
+import type { ServerMessage, ClientMessage } from '@bytepulse/pulsewave-shared';
 
 /**
  * Extended WebSocket connection with additional data

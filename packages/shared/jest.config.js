@@ -8,7 +8,7 @@ module.exports = {
   coverageDirectory: 'coverage',
   verbose: true,
   moduleNameMapper: {
-    '^@mediasoup-lib/shared$': '<rootDir>/src/index.ts',
+    '^@bytepulse/pulsewave-shared$': '<rootDir>/src/index.ts',
   },
   transformIgnorePatterns: ['/node_modules/'],
 };

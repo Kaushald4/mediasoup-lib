@@ -9,7 +9,7 @@ import type {
   IceCandidate,
   DtlsParameters,
   RtpParameters,
-} from '@mediasoup-lib/shared';
+} from '@bytepulse/pulsewave-shared';
 
 // Use mediasoup-client types
 type MediasoupTransport = types.Transport;

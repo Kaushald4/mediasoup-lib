@@ -6,7 +6,7 @@ import {
   useParticipants,
   useConnectionState,
   RoomView,
-} from '@mediasoup-lib/client';
+} from '@bytepulse/pulsewave-client';
 
 function App() {
   const [roomOptions, setRoomOptions] = useState({

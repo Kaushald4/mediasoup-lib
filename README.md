@@ -1,4 +1,4 @@
-# Mediasoup Lib
+# PulseWave
 
 A LiveKit-style WebRTC wrapper built on top of mediasoup, providing a complete video/audio conferencing solution with simple React hooks and a self-hosted server.
 
@@ -10,11 +10,11 @@ A LiveKit-style WebRTC wrapper built on top of mediasoup, providing a complete v
 
 ## Packages
 
-| Package                 | Description                                | Status      |
-| ----------------------- | ------------------------------------------ | ----------- |
-| `@mediasoup-lib/client` | React client SDK with hooks and components | ✅ Complete |
-| `@mediasoup-lib/server` | Mediasoup SFU server (Docker)              | ✅ Complete |
-| `@mediasoup-lib/shared` | Shared types and constants                 | ✅ Complete |
+| Package                       | Description                                | Status      |
+| ----------------------------- | ------------------------------------------ | ----------- |
+| `@bytepulse/pulsewave-client` | React client SDK with hooks and components | ✅ Complete |
+| `@bytepulse/pulsewave-server` | Mediasoup SFU server (Docker)              | ✅ Complete |
+| `@bytepulse/pulsewave-shared` | Shared types and constants                 | ✅ Complete |
 
 ## Quick Start
 
@@ -22,8 +22,8 @@ A LiveKit-style WebRTC wrapper built on top of mediasoup, providing a complete v
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/mediasoup-lib.git
-cd mediasoup-lib
+git clone https://github.com/your-org/pulsewave.git
+cd pulsewave
 
 # Start with docker-compose
 cd packages/server
@@ -36,7 +36,7 @@ The server will be available at `http://localhost:3000`
 
 ```bash
 # Install the client SDK
-npm install @mediasoup-lib/client
+npm install @bytepulse/pulsewave-client
 ```
 
 ```tsx
@@ -44,23 +44,21 @@ import {
   RoomProvider,
   useRoom,
   useLocalParticipant,
-  useTracks,
-  TrackView,
-} from '@mediasoup-lib/client';
+  useParticipants,
+  RoomView,
+} from '@bytepulse/pulsewave-client';
 
 function VideoRoom() {
   const room = useRoom();
   const localParticipant = useLocalParticipant();
-  const tracks = useTracks();
+  const participants = useParticipants();
 
   return (
     <div>
-      <button onClick={() => localParticipant.setCameraEnabled(true)}>Enable Camera</button>
-      <button onClick={() => localParticipant.setMicrophoneEnabled(true)}>Enable Microphone</button>
+      <button onClick={() => localParticipant.enableCamera()}>Enable Camera</button>
+      <button onClick={() => localParticipant.enableMicrophone()}>Enable Microphone</button>
 
-      {tracks.map((track) => (
-        <TrackView key={track.sid} track={track} />
-      ))}
+      <RoomView />
     </div>
   );
 }
@@ -68,9 +66,11 @@ function VideoRoom() {
 function App() {
   return (
     <RoomProvider
-      token={accessToken}
-      serverUrl="wss://mediasoup.example.com"
-      options={{ autoConnect: true }}
+      options={{
+        url: 'wss://pulsewave.example.com',
+        room: 'my-room',
+        token: accessToken,
+      }}
     >
       <VideoRoom />
     </RoomProvider>
@@ -86,12 +86,10 @@ The main entry point for using the client SDK.
 
 ```tsx
 <RoomProvider
-  token={accessToken}
-  serverUrl="wss://mediasoup.example.com"
   options={{
-    autoConnect: true,
-    adaptiveStream: true,
-    dynacast: true,
+    url: 'wss://pulsewave.example.com',
+    room: 'my-room',
+    token: accessToken,
   }}
 >
   <YourRoomComponent />
@@ -105,23 +103,10 @@ The main entry point for using the client SDK.
 Access the room instance and manage connection.
 
 ```tsx
-const room = useRoom();
+const { connect, disconnect } = useRoom();
 
-room.connect();
-room.disconnect();
-room.name;
-room.participants;
-room.localParticipant;
-```
-
-#### `useTracks()`
-
-Get all tracks (local and remote).
-
-```tsx
-const tracks = useTracks();
-
-tracks.map((track) => <TrackView key={track.sid} track={track} />);
+connect();
+disconnect();
 ```
 
 #### `useLocalParticipant()`
@@ -131,31 +116,30 @@ Access and control the local participant.
 ```tsx
 const localParticipant = useLocalParticipant();
 
-localParticipant.setCameraEnabled(true);
-localParticipant.setMicrophoneEnabled(false);
-localParticipant.publishTrack(track);
-localParticipant.unpublishTrack(trackSid);
+// Media controls
+localParticipant.enableCamera(deviceId?);
+localParticipant.disableCamera();
+localParticipant.enableMicrophone(deviceId?);
+localParticipant.disableMicrophone();
+
+// Device listing
+const cameras = await localParticipant.listAvailableCameras();
+const microphones = await localParticipant.listAvailableMicrophones();
+
+// Properties
+localParticipant.name;
+localParticipant.identity;
+localParticipant.tracks;
 ```
 
 #### `useParticipants()`
 
-Get all participants in the room.
+Get all remote participants in the room.
 
 ```tsx
 const participants = useParticipants();
 
-participants.map((p) => <ParticipantView key={p.sid} participant={p} />);
-```
-
-#### `useDataChannel()`
-
-Send and receive data.
-
-```tsx
-const { sendData, onData } = useDataChannel();
-
-sendData({ type: 'chat', message: 'Hello' });
-onData((data) => console.log('Received:', data));
+participants.map((p) => <ParticipantView key={p.identity} participant={p} />);
 ```
 
 #### `useConnectionState()`
@@ -164,7 +148,25 @@ Monitor connection state.
 
 ```tsx
 const state = useConnectionState();
-// 'connected' | 'disconnected' | 'reconnecting'
+// 'connected' | 'connecting' | 'disconnected' | 'reconnecting'
+```
+
+### Components
+
+#### `RoomView`
+
+A pre-built component that displays all participants and their tracks.
+
+```tsx
+<RoomView />
+```
+
+#### `ParticipantView`
+
+Display a single participant with their tracks.
+
+```tsx
+<ParticipantView participant={participant} />
 ```
 
 ## Server Configuration
@@ -201,7 +203,7 @@ ICE_SERVERS=[{"urls":["stun:stun.l.google.com:19302"]}]
 Generate access tokens on your backend:
 
 ```typescript
-import { AccessToken } from '@mediasoup-lib/server';
+import { AccessToken } from '@bytepulse/pulsewave-server';
 
 const token = new AccessToken(API_KEY, API_SECRET, {
   identity: 'user-123',
@@ -222,14 +224,81 @@ const jwt = token.toJwt();
 
 ## Architecture
 
+PulseWave follows a modular, production-grade architecture with clear separation of concerns.
+
+### Monorepo Structure
+
 ```
-mediasoup-lib/
+pulsewave/
 ├── packages/
 │   ├── client/          # React client SDK
+│   │   ├── src/
+│   │   │   ├── client/          # Core client logic
+│   │   │   │   ├── RoomClient.ts         # Facade/coordinator
+│   │   │   │   ├── controllers/          # Specialized controllers
+│   │   │   │   │   ├── EventBus.ts       # Type-safe event emitter
+│   │   │   │   │   ├── ParticipantStore.ts  # Participant state management
+│   │   │   │   │   ├── ConnectionController.ts  # WebSocket connection
+│   │   │   │   │   ├── SignalingClient.ts  # Signaling message dispatch
+│   │   │   │   │   ├── MediaController.ts  # Media device operations
+│   │   │   │   │   ├── WebRTCController.ts  # WebRTC lifecycle
+│   │   │   │   │   └── TrackController.ts  # Track publishing/subscription
+│   │   │   │   ├── handlers/       # Message handlers (Command pattern)
+│   │   │   │   └── ...
+│   │   │   ├── components/      # React components
+│   │   │   ├── context/         # React context
+│   │   │   ├── hooks/           # React hooks
+│   │   │   ├── media/           # Media handling
+│   │   │   └── webrtc/          # WebRTC management
 │   ├── server/          # Mediasoup SFU server
+│   │   ├── src/
+│   │   │   ├── api/            # REST API
+│   │   │   ├── auth/           # JWT authentication
+│   │   │   ├── config/         # Configuration
+│   │   │   ├── redis/          # Redis integration
+│   │   │   ├── sfu/            # Mediasoup SFU
+│   │   │   └── websocket/      # WebSocket server & handlers
 │   └── shared/          # Shared types and constants
 ├── plans/               # Architecture and roadmap
 └── README.md
+```
+
+### Client Architecture
+
+The client SDK follows the **Facade Pattern** with specialized controllers:
+
+```
+RoomClient (Facade)
+├─ ConnectionController  (WebSocket lifecycle)
+├─ SignalingClient       (Message dispatch)
+├─ MediaController       (Device operations)
+├─ WebRTCController      (WebRTC lifecycle)
+├─ TrackController       (Track publishing/subscription)
+├─ ParticipantStore      (Participant state)
+└─ EventBus              (Event system)
+```
+
+**Key Design Principles:**
+
+- **Single Responsibility**: Each controller handles one specific concern
+- **Intent-based APIs**: High-level methods like `enableCamera()` instead of low-level producer management
+- **Event-driven**: Proper event system for state changes
+- **Type-safe**: Full TypeScript support with no `any` types
+
+### Server Architecture
+
+The server uses the **Command Pattern** for WebSocket message handling:
+
+```
+WebSocketServer
+├─ HandlerRegistry  (Maps message types to handlers)
+├─ Handlers         (Command implementations)
+│   ├─ JoinHandler
+│   ├─ LeaveHandler
+│   ├─ PublishHandler
+│   ├─ SubscribeHandler
+│   └─ ...
+└─ RoomManager      (Room lifecycle)
 ```
 
 See [`plans/architecture.md`](plans/architecture.md) for detailed architecture documentation.
@@ -261,8 +330,8 @@ pnpm dev
 pnpm build
 
 # Build specific package
-pnpm --filter @mediasoup-lib/client build
-pnpm --filter @mediasoup-lib/server build
+pnpm --filter @bytepulse/pulsewave-client build
+pnpm --filter @bytepulse/pulsewave-server build
 ```
 
 ### Test
@@ -272,7 +341,7 @@ pnpm --filter @mediasoup-lib/server build
 pnpm test
 
 # Run specific package tests
-pnpm --filter @mediasoup-lib/client test
+pnpm --filter @bytepulse/pulsewave-client test
 ```
 
 ## Deployment
@@ -281,7 +350,7 @@ pnpm --filter @mediasoup-lib/client test
 
 ```bash
 # Build the Docker image
-docker build -t mediasoup-lib/server:latest packages/server
+docker build -t pulsewave/server:latest packages/server
 
 # Run with docker-compose
 cd packages/server
@@ -317,9 +386,9 @@ See [`plans/roadmap.md`](plans/roadmap.md) for the complete implementation roadm
 - ✅ Phase 13: Client - React Components
 - ✅ Phase 14: Client - Data Channels
 - ✅ Phase 15: Testing
-- 🚧 Phase 16: Documentation
-- ⏳ Phase 17: CI/CD
-- ⏳ Phase 18: Examples
+- ✅ Phase 16: Documentation
+- ✅ Phase 17: CI/CD
+- ✅ Phase 18: Examples
 - ⏳ Phase 19: Performance & Optimization
 - ⏳ Phase 20: Security
 
@@ -333,8 +402,8 @@ MIT
 
 ## Support
 
-- GitHub Issues: [github.com/your-org/mediasoup-lib/issues](https://github.com/your-org/mediasoup-lib/issues)
-- Documentation: [docs.mediasoup-lib.com](https://docs.mediasoup-lib.com)
+- GitHub Issues: [github.com/your-org/pulsewave/issues](https://github.com/your-org/pulsewave/issues)
+- Documentation: [docs.pulsewave.dev](https://docs.pulsewave.dev)
 
 ## Acknowledgments
 

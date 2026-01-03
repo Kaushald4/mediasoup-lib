@@ -3,7 +3,7 @@
  */
 
 import jwt from 'jsonwebtoken';
-import type { AccessTokenClaims, VideoGrants, TokenValidationResult } from '@mediasoup-lib/shared';
+import type { AccessTokenClaims, VideoGrants, TokenValidationResult } from '@bytepulse/pulsewave-shared';
 
 /**
  * AccessToken class

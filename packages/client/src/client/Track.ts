@@ -2,7 +2,7 @@
  * Base Track class
  */
 
-import type { TrackKind, TrackInfo } from '@mediasoup-lib/shared';
+import type { TrackKind, TrackInfo } from '@bytepulse/pulsewave-shared';
 import type { TrackEvents } from '../types';
 
 /**

@@ -3,7 +3,7 @@
  */
 
 import type { HandlerContext, MessageHandler, WebSocketConnection } from './types';
-import type { ClientMessage, ServerMessage } from '@mediasoup-lib/shared';
+import type { ClientMessage, ServerMessage } from '@bytepulse/pulsewave-shared';
 
 /**
  * Abstract base class for message handlers

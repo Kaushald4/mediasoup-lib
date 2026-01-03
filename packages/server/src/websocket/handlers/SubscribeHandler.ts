@@ -2,10 +2,10 @@
  * Subscribe to track handler
  */
 
-import { CLIENT_EVENTS, ErrorCode } from '@mediasoup-lib/shared';
+import { CLIENT_EVENTS, ErrorCode } from '@bytepulse/pulsewave-shared';
 import { BaseHandler } from './BaseHandler';
 import type { HandlerContext } from './types';
-import type { SubscribeMessage } from '@mediasoup-lib/shared';
+import type { SubscribeMessage } from '@bytepulse/pulsewave-shared';
 
 export class SubscribeHandler extends BaseHandler {
   public readonly type = CLIENT_EVENTS.SUBSCRIBE;

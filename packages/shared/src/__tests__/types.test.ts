@@ -2,8 +2,8 @@
  * Tests for shared types
  */
 
-import type { RoomInfo, ParticipantInfo, TrackInfo } from '@mediasoup-lib/shared';
-import { ConnectionState, TrackKind, TrackSource } from '@mediasoup-lib/shared';
+import type { RoomInfo, ParticipantInfo, TrackInfo } from '@bytepulse/pulsewave-shared';
+import { ConnectionState, TrackKind, TrackSource } from '@bytepulse/pulsewave-shared';
 
 describe('Shared Types', () => {
   describe('RoomInfo', () => {

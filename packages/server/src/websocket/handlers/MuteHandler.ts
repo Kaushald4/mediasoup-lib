@@ -2,10 +2,10 @@
  * Mute/Unmute track handler
  */
 
-import { CLIENT_EVENTS } from '@mediasoup-lib/shared';
+import { CLIENT_EVENTS } from '@bytepulse/pulsewave-shared';
 import { BaseHandler } from './BaseHandler';
 import type { HandlerContext } from './types';
-import type { MuteMessage } from '@mediasoup-lib/shared';
+import type { MuteMessage } from '@bytepulse/pulsewave-shared';
 
 export class MuteHandler extends BaseHandler {
   public readonly type = CLIENT_EVENTS.MUTE;

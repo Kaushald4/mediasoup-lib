@@ -1,6 +1,6 @@
-# @mediasoup-lib/server
+# @bytepulse/pulsewave-server
 
-Mediasoup SFU server for mediasoup-lib. Provides WebRTC signaling and media routing for video/audio conferencing.
+Mediasoup SFU server for PulseWave. Provides WebRTC signaling and media routing for video/audio conferencing.
 
 ## Installation
 
@@ -57,14 +57,13 @@ ICE_SERVERS=[{"urls":["stun:stun.l.google.com:19302"]}]
 
 ## API Endpoints
 
-### POST /token
+### POST /api/token
 
 Generate an access token for joining a room.
 
 ```bash
-curl -X POST http://localhost:3000/token \
+curl -X POST http://localhost:3000/api/token \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer your-api-key" \
   -d '{
     "identity": "user-123",
     "name": "John Doe",
@@ -78,26 +77,6 @@ Response:
 ```json
 {
   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-}
-```
-
-### GET /rooms/:name
-
-Get room information.
-
-```bash
-curl http://localhost:3000/rooms/my-room
-```
-
-Response:
-
-```json
-{
-  "sid": "RM_123",
-  "name": "my-room",
-  "numParticipants": 3,
-  "maxParticipants": 10,
-  "creationTime": 1234567890
 }
 ```
 
@@ -130,13 +109,32 @@ const ws = new WebSocket('ws://localhost:3000?token=your-access-token');
 }
 ```
 
+#### Create WebRTC Transport
+
+```json
+{
+  "type": "create-transport",
+  "direction": "send" | "recv"
+}
+```
+
+#### Connect Transport
+
+```json
+{
+  "type": "connect-transport",
+  "transportId": "TP_123",
+  "dtlsParameters": {...}
+}
+```
+
 #### Publish Track
 
 ```json
 {
   "type": "publish",
-  "kind": "video",
-  "source": "camera",
+  "kind": "video" | "audio",
+  "source": "camera" | "microphone" | "screen",
   "rtpParameters": {...}
 }
 ```
@@ -146,7 +144,7 @@ const ws = new WebSocket('ws://localhost:3000?token=your-access-token');
 ```json
 {
   "type": "unpublish",
-  "trackSid": "TR_123"
+  "producerId": "PR_123"
 }
 ```
 
@@ -155,7 +153,7 @@ const ws = new WebSocket('ws://localhost:3000?token=your-access-token');
 ```json
 {
   "type": "subscribe",
-  "trackSid": "TR_123",
+  "producerId": "PR_123",
   "rtpCapabilities": {...}
 }
 ```
@@ -165,7 +163,34 @@ const ws = new WebSocket('ws://localhost:3000?token=your-access-token');
 ```json
 {
   "type": "unsubscribe",
-  "trackSid": "TR_123"
+  "consumerId": "CN_123"
+}
+```
+
+#### Resume Consumer
+
+```json
+{
+  "type": "resume-consumer",
+  "consumerId": "CN_123"
+}
+```
+
+#### Mute Track
+
+```json
+{
+  "type": "mute",
+  "producerId": "PR_123"
+}
+```
+
+#### Unmute Track
+
+```json
+{
+  "type": "unmute",
+  "producerId": "PR_123"
 }
 ```
 
@@ -174,7 +199,7 @@ const ws = new WebSocket('ws://localhost:3000?token=your-access-token');
 ```json
 {
   "type": "publish-data",
-  "kind": "reliable",
+  "kind": "reliable" | "lossy",
   "data": { "type": "chat", "message": "Hello" }
 }
 ```
@@ -223,7 +248,7 @@ const ws = new WebSocket('ws://localhost:3000?token=your-access-token');
 ```json
 {
   "type": "track-unpublished",
-  "trackSid": "TR_123"
+  "producerId": "PR_123"
 }
 ```
 
@@ -233,7 +258,36 @@ const ws = new WebSocket('ws://localhost:3000?token=your-access-token');
 {
   "type": "track-subscribed",
   "trackSid": "TR_123",
-  "transportId": "TP_123"
+  "consumerId": "CN_123",
+  "producerId": "PR_123",
+  "rtpParameters": {...}
+}
+```
+
+#### Track Unsubscribed
+
+```json
+{
+  "type": "track-unsubscribed",
+  "consumerId": "CN_123"
+}
+```
+
+#### Track Muted
+
+```json
+{
+  "type": "track-muted",
+  "producerId": "PR_123"
+}
+```
+
+#### Track Unmuted
+
+```json
+{
+  "type": "track-unmuted",
+  "producerId": "PR_123"
 }
 ```
 
@@ -242,7 +296,7 @@ const ws = new WebSocket('ws://localhost:3000?token=your-access-token');
 ```json
 {
   "type": "data",
-  "participantSid": "PA_123",
+  "participantIdentity": "user-123",
   "kind": "reliable",
   "data": {...}
 }
@@ -263,7 +317,7 @@ const ws = new WebSocket('ws://localhost:3000?token=your-access-token');
 Generate access tokens on your backend:
 
 ```typescript
-import { AccessToken } from '@mediasoup-lib/server';
+import { AccessToken } from '@bytepulse/pulsewave-server';
 
 const token = new AccessToken(API_KEY, API_SECRET, {
   identity: 'user-123',
@@ -282,36 +336,137 @@ token.addGrant({
 const jwt = token.toJwt();
 ```
 
-## Architecture
+## Server Architecture
+
+PulseWave Server follows a modular architecture using the Command Pattern for WebSocket message handling:
 
 ```
-┌─────────────┐
-│   Client    │
-└──────┬──────┘
-       │ WebSocket
-       ▼
-┌─────────────────┐
-│ WebSocketServer │
-└──────┬──────────┘
-       │
-┌──────▼──────────┐
-│  RoomManager    │◄────┐
-└──────┬──────────┘     │
-       │                │
-┌──────▼──────────┐     │
-│     Room        │     │
-└──────┬──────────┘     │
-       │                │
-┌──────▼──────────┐     │
-│  Participants   │     │
-└─────────────────┘     │
-                       │
-┌──────────────────────┼──────────────┐
-│                      │              │
-┌──────▼──────┐  ┌─────▼─────┐  ┌───▼──────┐
-│ Mediasoup   │  │   Redis   │  │   JWT    │
-│   Workers   │  │  Manager  │  │ Service  │
-└─────────────┘  └───────────┘  └──────────┘
+┌─────────────────────────────────────────────────────────┐
+│                  WebSocketServer                         │
+│  (WebSocket connection management & message routing)     │
+└────────────────────┬────────────────────────────────────┘
+                     │
+         ┌───────────▼──────────────────────────────┐
+         │           HandlerRegistry                 │
+         │  (Maps message types to handlers)         │
+         └───────────┬──────────────────────────────┘
+                     │
+    ┌────────────────┼──────────────────────────────┐
+    │                │                              │
+┌───▼────────┐  ┌───▼──────────┐  ┌─────────────▼────┐
+│ JoinHandler│  │PublishHandler│  │SubscribeHandler  │
+└────────────┘  └──────────────┘  └──────────────────┘
+    │                │                      │
+┌───▼────────┐  ┌───▼──────────┐  ┌─────────────▼────┐
+│LeaveHandler│  │UnpublishHandler│ │UnsubscribeHandler│
+└────────────┘  └──────────────┘  └──────────────────┘
+    │                │                      │
+    └────────────────┼──────────────────────┘
+                     │
+         ┌───────────▼──────────────────────────────┐
+         │            RoomManager                    │
+         │  (Room lifecycle & participant management)│
+         └───────────┬──────────────────────────────┘
+                     │
+         ┌───────────▼──────────────────────────────┐
+         │               Room                        │
+         │  (Mediasoup Router & state)               │
+         └───────────┬──────────────────────────────┘
+                     │
+    ┌────────────────┼──────────────────────────────┐
+    │                │                              │
+┌───▼────────┐  ┌───▼──────────┐  ┌─────────────▼────┐
+│Mediasoup   │  │   Redis      │  │   JWT Service    │
+│Workers     │  │   Manager    │  │                  │
+└────────────┘  └──────────────┘  └──────────────────┘
+```
+
+### Handlers
+
+The server uses the Command Pattern for handling WebSocket messages. Each handler implements the `BaseHandler` interface:
+
+```typescript
+abstract class BaseHandler {
+  abstract canHandle(message: SignalingMessage): boolean;
+  abstract handle(message: SignalingMessage, context: HandlerContext): Promise<void>;
+}
+```
+
+Available handlers:
+
+- `JoinHandler` - Handles room join requests
+- `LeaveHandler` - Handles room leave requests
+- `CreateWebRtcTransportHandler` - Creates WebRTC transports
+- `ConnectTransportHandler` - Connects WebRTC transports
+- `PublishHandler` - Handles track publishing
+- `UnpublishHandler` - Handles track unpublishing
+- `SubscribeHandler` - Handles track subscription
+- `UnsubscribeHandler` - Handles track unsubscription
+- `ResumeConsumerHandler` - Resumes paused consumers
+- `MuteHandler` - Handles track muting
+- `DataHandler` - Handles data channel messages
+
+### Modules
+
+#### WebSocket Server
+
+Manages WebSocket connections and message routing.
+
+```typescript
+import { WebSocketServer } from '@bytepulse/pulsewave-server';
+
+const server = new WebSocketServer({
+  port: 3000,
+  apiKey: process.env.API_KEY,
+  apiSecret: process.env.API_SECRET,
+});
+
+server.start();
+```
+
+#### Room Manager
+
+Manages room lifecycle and participant management.
+
+```typescript
+import { RoomManager } from '@bytepulse/pulsewave-server';
+
+const roomManager = new RoomManager();
+
+// Create or get room
+const room = await roomManager.getOrCreateRoom('my-room');
+
+// Close room
+await roomManager.closeRoom('my-room');
+```
+
+#### Mediasoup Worker
+
+Wraps mediasoup worker processes.
+
+```typescript
+import { MediasoupWorker } from '@bytepulse/pulsewave-server';
+
+const worker = new MediasoupWorker({
+  logLevel: 'error',
+  rtcMinPort: 40000,
+  rtcMaxPort: 50000,
+});
+```
+
+#### Redis Manager
+
+Manages Redis connections for state synchronization.
+
+```typescript
+import { RedisManager } from '@bytepulse/pulsewave-server';
+
+const redis = new RedisManager({
+  host: 'localhost',
+  port: 6379,
+});
+
+await redis.connect();
 ```
 
 ## Scaling

@@ -29,7 +29,7 @@ importers:
 
   examples/basic-room:
     dependencies:
-      '@mediasoup-lib/client':
+      '@bytepulse/pulsewave-client':
         specifier: workspace:*
         version: link:../../packages/client
       react:
@@ -57,7 +57,7 @@ importers:
 
   packages/client:
     dependencies:
-      '@mediasoup-lib/shared':
+      '@bytepulse/pulsewave-shared':
         specifier: workspace:*
         version: link:../shared
       mediasoup-client:
@@ -100,7 +100,7 @@ importers:
 
   packages/server:
     dependencies:
-      '@mediasoup-lib/shared':
+      '@bytepulse/pulsewave-shared':
         specifier: workspace:*
         version: link:../shared
       dotenv:

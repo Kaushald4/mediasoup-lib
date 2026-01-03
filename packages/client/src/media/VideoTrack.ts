@@ -2,8 +2,8 @@
  * VideoTrack - Helper class for video track management
  */
 
-import type { TrackInfo } from '@mediasoup-lib/shared';
-import { TrackKind, TrackSource } from '@mediasoup-lib/shared';
+import type { TrackInfo } from '@bytepulse/pulsewave-shared';
+import { TrackKind, TrackSource } from '@bytepulse/pulsewave-shared';
 import { LocalTrack } from '../client/LocalTrack';
 
 /**
