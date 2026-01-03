@@ -94,6 +94,7 @@ export class RemoteTrackPublicationImpl
     subscribed: boolean,
     options?: TrackSubscribeOptions
   ) => Promise<void>;
+  private trackSubscribedCallback?: (publication: RemoteTrackPublicationImpl) => void;
 
   constructor(info: TrackInfo, name: string) {
     super(info, name);
@@ -105,6 +106,17 @@ export class RemoteTrackPublicationImpl
   setTrack(track: RemoteTrack): void {
     this.track = track;
     this.subscribed = true;
+    // Notify participant that track was subscribed
+    if (this.trackSubscribedCallback) {
+      this.trackSubscribedCallback(this);
+    }
+  }
+
+  /**
+   * Set callback for when track is subscribed
+   */
+  setTrackSubscribedCallback(callback: (publication: RemoteTrackPublicationImpl) => void): void {
+    this.trackSubscribedCallback = callback;
   }
 
   /**

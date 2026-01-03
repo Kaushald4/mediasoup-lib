@@ -30,6 +30,10 @@ export class LocalParticipantImpl implements LocalParticipant {
   private publishCallback?: (track: LocalTrack, options?: TrackPublishOptions) => Promise<void>;
   private unpublishCallback?: (sid: string) => Promise<void>;
   private publishDataCallback?: (data: unknown, kind: 'reliable' | 'lossy') => Promise<void>;
+  private enableCameraCallback?: () => Promise<void>;
+  private disableCameraCallback?: () => Promise<void>;
+  private enableMicrophoneCallback?: () => Promise<void>;
+  private disableMicrophoneCallback?: () => Promise<void>;
 
   constructor(info: ParticipantInfo) {
     this.sid = info.sid;
@@ -141,6 +145,42 @@ export class LocalParticipantImpl implements LocalParticipant {
   }
 
   /**
+   * Enable camera (video)
+   */
+  async enableCamera(): Promise<void> {
+    if (this.enableCameraCallback) {
+      await this.enableCameraCallback();
+    }
+  }
+
+  /**
+   * Disable camera (video)
+   */
+  async disableCamera(): Promise<void> {
+    if (this.disableCameraCallback) {
+      await this.disableCameraCallback();
+    }
+  }
+
+  /**
+   * Enable microphone (audio)
+   */
+  async enableMicrophone(): Promise<void> {
+    if (this.enableMicrophoneCallback) {
+      await this.enableMicrophoneCallback();
+    }
+  }
+
+  /**
+   * Disable microphone (audio)
+   */
+  async disableMicrophone(): Promise<void> {
+    if (this.disableMicrophoneCallback) {
+      await this.disableMicrophoneCallback();
+    }
+  }
+
+  /**
    * Set metadata
    */
   async setMetadata(metadata: Record<string, unknown>): Promise<void> {
@@ -197,6 +237,34 @@ export class LocalParticipantImpl implements LocalParticipant {
     callback: (data: unknown, kind: 'reliable' | 'lossy') => Promise<void>
   ): void {
     this.publishDataCallback = callback;
+  }
+
+  /**
+   * Set enable camera callback
+   */
+  setEnableCameraCallback(callback: () => Promise<void>): void {
+    this.enableCameraCallback = callback;
+  }
+
+  /**
+   * Set disable camera callback
+   */
+  setDisableCameraCallback(callback: () => Promise<void>): void {
+    this.disableCameraCallback = callback;
+  }
+
+  /**
+   * Set enable microphone callback
+   */
+  setEnableMicrophoneCallback(callback: () => Promise<void>): void {
+    this.enableMicrophoneCallback = callback;
+  }
+
+  /**
+   * Set disable microphone callback
+   */
+  setDisableMicrophoneCallback(callback: () => Promise<void>): void {
+    this.disableMicrophoneCallback = callback;
   }
 
   /**

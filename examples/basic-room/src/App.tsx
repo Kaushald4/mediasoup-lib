@@ -3,6 +3,7 @@ import {
   RoomProvider,
   useRoom,
   useLocalParticipant,
+  useParticipants,
   useConnectionState,
   RoomView,
 } from '@mediasoup-lib/client';
@@ -114,12 +115,48 @@ function App() {
 function RoomContent({ onLeave }: { onLeave: () => void }) {
   const { connect, disconnect } = useRoom();
   const localParticipant = useLocalParticipant();
+  const participants = useParticipants();
   const connectionState = useConnectionState();
+  const [isCameraEnabled, setIsCameraEnabled] = useState(false);
+  const [isMicrophoneEnabled, setIsMicrophoneEnabled] = useState(false);
 
   // Auto-connect when component mounts
   useEffect(() => {
     connect().catch(console.error);
   }, [connect]);
+
+  const handleToggleCamera = async () => {
+    if (!localParticipant) return;
+
+    try {
+      if (isCameraEnabled) {
+        await localParticipant.disableCamera();
+        setIsCameraEnabled(false);
+      } else {
+        await localParticipant.enableCamera();
+        setIsCameraEnabled(true);
+      }
+    } catch (error) {
+      console.error('Failed to toggle camera:', error);
+    }
+  };
+  console.log('kk');
+
+  const handleToggleMicrophone = async () => {
+    if (!localParticipant) return;
+
+    try {
+      if (isMicrophoneEnabled) {
+        await localParticipant.disableMicrophone();
+        setIsMicrophoneEnabled(false);
+      } else {
+        await localParticipant.enableMicrophone();
+        setIsMicrophoneEnabled(true);
+      }
+    } catch (error) {
+      console.error('Failed to toggle microphone:', error);
+    }
+  };
 
   const handleLeave = async () => {
     await disconnect();
@@ -134,6 +171,22 @@ function RoomContent({ onLeave }: { onLeave: () => void }) {
           <span>Connection: </span>
           <span className={`status ${connectionState}`}>{connectionState}</span>
         </div>
+        <div className="media-controls">
+          <button
+            onClick={handleToggleCamera}
+            disabled={!localParticipant || connectionState !== 'connected'}
+            className={isCameraEnabled ? 'active' : ''}
+          >
+            {isCameraEnabled ? '📷 Disable Camera' : '📷 Enable Camera'}
+          </button>
+          <button
+            onClick={handleToggleMicrophone}
+            disabled={!localParticipant || connectionState !== 'connected'}
+            className={isMicrophoneEnabled ? 'active' : ''}
+          >
+            {isMicrophoneEnabled ? '🎤 Disable Mic' : '🎤 Enable Mic'}
+          </button>
+        </div>
         <button onClick={handleLeave}>Leave Room</button>
         {localParticipant && (
           <div className="local-controls">
@@ -142,6 +195,10 @@ function RoomContent({ onLeave }: { onLeave: () => void }) {
             <p>Identity: {localParticipant.identity}</p>
           </div>
         )}
+        <div className="participants-count">
+          <h3>Participants</h3>
+          <p>Remote: {participants.length}</p>
+        </div>
       </div>
       <RoomView />
     </>

@@ -117,6 +117,7 @@ export class Participant {
     const track = new Track(id, kind, source);
     this.tracks.set(id, track);
     this.producers.set(id, producer);
+    console.log(`Participant ${this.identity} added producer ${id}, track SID: ${track.sid}`);
     return track;
   }
 
@@ -238,6 +239,7 @@ export class Track {
   public simulcast: boolean;
 
   constructor(sid: string, kind: TrackKind, source: TrackSource) {
+    // Use the producer ID as the track SID for consistency
     this.sid = sid;
     this.kind = kind;
     this.source = source;

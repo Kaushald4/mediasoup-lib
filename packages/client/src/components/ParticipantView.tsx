@@ -2,7 +2,7 @@
  * ParticipantView - Component for rendering a participant with their tracks
  */
 
-import { useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import type { Participant } from '../types';
 import { VideoTrack } from './VideoTrack';
 import { AudioTrack } from './AudioTrack';
@@ -29,28 +29,77 @@ export function ParticipantView({
   showIdentity = true,
   onVideoElement,
 }: ParticipantViewProps): JSX.Element | null {
-  const videoTracks = useMemo(() => {
-    const tracks: Array<{ track: any; sid: string }> = [];
-    for (const publication of participant.getTracks()) {
-      if (publication.track && publication.track.kind === 'video') {
-        tracks.push({ track: publication.track, sid: publication.sid });
-      }
-    }
-    return tracks;
+  const [tracks, setTracks] = useState(() => participant.getTracks());
+
+  // Update tracks when participant changes or when tracks are updated
+  useEffect(() => {
+    const updateTracks = () => {
+      const currentTracks = participant.getTracks();
+      console.log(
+        'ParticipantView - Updating tracks for participant:',
+        participant.identity,
+        currentTracks.map((t) => ({
+          sid: t.sid,
+          kind: t.kind,
+          hasTrack: !!t.track,
+          subscribed: t.subscribed,
+        }))
+      );
+      setTracks(currentTracks);
+    };
+
+    // Initial update
+    updateTracks();
+
+    // Listen for track changes
+    const handleTrackPublished = (publication: any) => {
+      console.log('ParticipantView - Track published event:', publication);
+      updateTracks();
+    };
+
+    const handleTrackSubscribed = (publication: any) => {
+      console.log(
+        'ParticipantView - Track subscribed event:',
+        publication.sid,
+        'hasTrack:',
+        !!publication.track
+      );
+      updateTracks();
+    };
+
+    const handleTrackUnpublished = () => {
+      console.log('ParticipantView - Track unpublished event');
+      updateTracks();
+    };
+
+    participant.on('track-published', handleTrackPublished);
+    participant.on('track-subscribed', handleTrackSubscribed);
+    participant.on('track-unpublished', handleTrackUnpublished);
+
+    return () => {
+      participant.off('track-published', handleTrackPublished);
+      participant.off('track-subscribed', handleTrackSubscribed);
+      participant.off('track-unpublished', handleTrackUnpublished);
+    };
   }, [participant]);
 
-  const audioTracks = useMemo(() => {
-    const tracks: Array<{ track: any; sid: string }> = [];
-    for (const publication of participant.getTracks()) {
-      if (publication.track && publication.track.kind === 'audio') {
-        tracks.push({ track: publication.track, sid: publication.sid });
-      }
-    }
-    return tracks;
-  }, [participant]);
+  // Derive video and audio tracks from current tracks state
+  const videoTracks = tracks
+    .filter((t) => t.track && t.track.kind === 'video')
+    .map((t) => ({ track: t.track, sid: t.sid }));
+  const audioTracks = tracks
+    .filter((t) => t.track && t.track.kind === 'audio')
+    .map((t) => ({ track: t.track, sid: t.sid }));
+
+  console.log(
+    'ParticipantView render - videoTracks:',
+    videoTracks.length,
+    'audioTracks:',
+    audioTracks.length
+  );
 
   const hasAudio = audioTracks.length > 0;
-  const isAudioMuted = hasAudio && audioTracks.some((t) => t.track.isMuted);
+  const isAudioMuted = hasAudio && audioTracks.some((t) => t.track?.isMuted);
 
   if (!participant) {
     return null;
@@ -63,15 +112,18 @@ export function ParticipantView({
       {/* Video tracks */}
       {videoTracks.length > 0 ? (
         <div className="participant-video">
-          {videoTracks.map(({ track, sid }) => (
-            <VideoTrack
-              key={sid}
-              track={track}
-              className={videoClassName}
-              objectFit={objectFit}
-              onVideoElement={onVideoElement}
-            />
-          ))}
+          {videoTracks.map(({ track, sid }) => {
+            if (!track) return null;
+            return (
+              <VideoTrack
+                key={sid}
+                track={track}
+                className={videoClassName}
+                objectFit={objectFit}
+                onVideoElement={onVideoElement}
+              />
+            );
+          })}
         </div>
       ) : (
         <div className="participant-placeholder">
@@ -80,9 +132,10 @@ export function ParticipantView({
       )}
 
       {/* Audio tracks (hidden) */}
-      {audioTracks.map(({ track, sid }) => (
-        <AudioTrack key={sid} track={track} />
-      ))}
+      {audioTracks.map(({ track, sid }) => {
+        if (!track) return null;
+        return <AudioTrack key={sid} track={track} />;
+      })}
 
       {/* Audio indicator */}
       {showAudioIndicator && hasAudio && (

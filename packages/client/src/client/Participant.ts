@@ -25,19 +25,35 @@ export class ParticipantImpl implements Participant {
 
   protected tracks: Map<string, RemoteTrackPublicationImpl> = new Map();
   protected listeners: Map<keyof ParticipantEvents, Set<(data: unknown) => void>> = new Map();
+  protected info: ParticipantInfo;
 
   constructor(info: ParticipantInfo) {
+    this.info = info;
     this.sid = info.sid;
     this.identity = info.identity;
     this.name = info.name || info.identity;
     this.state = info.state;
     this.metadata = info.metadata || {};
 
-    // Initialize tracks
+    // Initialize tracks with subscription callback
     info.tracks.forEach((trackInfo) => {
       const publication = new RemoteTrackPublicationImpl(trackInfo, trackInfo.sid);
+      publication.setTrackSubscribedCallback(this.handleTrackSubscribed.bind(this));
       this.tracks.set(trackInfo.sid, publication);
     });
+  }
+
+  /**
+   * Handle track subscribed callback from publication
+   */
+  private handleTrackSubscribed(publication: RemoteTrackPublicationImpl): void {
+    console.log(
+      'Participant - Track subscribed:',
+      publication.sid,
+      'hasTrack:',
+      !!publication.track
+    );
+    this.emit('track-subscribed', publication);
   }
 
   /**
@@ -73,6 +89,7 @@ export class ParticipantImpl implements Participant {
    * Update participant info
    */
   updateInfo(info: ParticipantInfo): void {
+    this.info = info;
     this.name = info.name || info.identity;
     this.state = info.state;
     this.metadata = info.metadata || {};
@@ -82,6 +99,7 @@ export class ParticipantImpl implements Participant {
       let publication = this.tracks.get(trackInfo.sid);
       if (!publication) {
         publication = new RemoteTrackPublicationImpl(trackInfo, trackInfo.sid);
+        publication.setTrackSubscribedCallback(this.handleTrackSubscribed.bind(this));
         this.tracks.set(trackInfo.sid, publication);
         this.emit('track-published', publication);
       } else {
@@ -160,6 +178,13 @@ export class RemoteParticipantImpl extends ParticipantImpl implements RemotePart
 
   constructor(info: ParticipantInfo) {
     super(info);
+  }
+
+  /**
+   * Get participant info
+   */
+  getInfo(): ParticipantInfo {
+    return { ...this.info };
   }
 
   /**

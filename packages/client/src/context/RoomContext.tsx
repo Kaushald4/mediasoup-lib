@@ -142,7 +142,13 @@ export function RoomProvider({
       });
 
       roomClient.on('participant-joined', (participant: any) => {
-        setParticipants((prev) => [...prev, participant as RemoteParticipant]);
+        setParticipants((prev) => {
+          // Check for duplicates by SID
+          if (prev.some((p) => p.sid === participant.sid)) {
+            return prev;
+          }
+          return [...prev, participant as RemoteParticipant];
+        });
       });
 
       roomClient.on('participant-left', (participant: any) => {

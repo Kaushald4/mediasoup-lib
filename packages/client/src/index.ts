@@ -20,6 +20,10 @@ export { MediaManager } from './media';
 export { AudioTrack } from './media/AudioTrack';
 export { VideoTrack } from './media/VideoTrack';
 
+// Export WebRTC classes
+export { WebRTCManager } from './webrtc/WebRTCManager';
+export type { WebRTCConfig } from './webrtc/WebRTCManager';
+
 // Export context
 export { RoomProvider, useRoomContext, useRoom, withRoom } from './context';
 export type { RoomContextValue, RoomProviderProps } from './context';

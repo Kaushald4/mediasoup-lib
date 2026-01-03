@@ -3,7 +3,7 @@
  */
 
 import { useEffect, useRef } from 'react';
-import type { RemoteTrack, LocalTrack } from '../client';
+import type { RemoteTrack, LocalTrack } from '../types';
 
 interface VideoTrackProps {
   track: RemoteTrack | LocalTrack;

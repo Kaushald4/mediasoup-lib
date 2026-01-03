@@ -84,6 +84,12 @@ export class WebSocketServer {
         case CLIENT_EVENTS.LEAVE:
           await this.handleLeave(ws);
           break;
+        case 'create_transport':
+          await this.handleCreateWebRtcTransport(ws, message as any);
+          break;
+        case 'connect_transport':
+          await this.handleConnectWebRtcTransport(ws, message as any);
+          break;
         case CLIENT_EVENTS.PUBLISH:
           await this.handlePublish(ws, message as any);
           break;
@@ -95,6 +101,9 @@ export class WebSocketServer {
           break;
         case CLIENT_EVENTS.UNSUBSCRIBE:
           await this.handleUnsubscribe(ws, message as any);
+          break;
+        case 'resume_consumer':
+          await this.handleResumeConsumer(ws, message as any);
           break;
         case CLIENT_EVENTS.MUTE:
           await this.handleMute(ws, message as any);
@@ -172,7 +181,7 @@ export class WebSocketServer {
     ws.participantSid = participant.sid;
     ws.roomSid = room.sid;
 
-    // Send joined message
+    // Send joined message with RTP capabilities
     this.send(ws, {
       type: SERVER_EVENTS.JOINED,
       room: room.getInfo(),
@@ -181,6 +190,7 @@ export class WebSocketServer {
         .getParticipants()
         .filter((p) => p.sid !== participant.sid)
         .map((p) => p.getInfo()),
+      rtpCapabilities: room.getRtpCapabilities() as any,
     });
 
     // Notify other participants
@@ -230,43 +240,362 @@ export class WebSocketServer {
   }
 
   /**
+   * Handle create WebRTC transport
+   */
+  private async handleCreateWebRtcTransport(ws: WebSocketConnection, message: any): Promise<void> {
+    if (!ws.roomSid || !ws.participantSid) {
+      this.sendError(ws, ErrorCode.InvalidRequest, 'Not joined to room');
+      return;
+    }
+
+    const room = this.roomManager.getRoom(ws.roomSid);
+    if (!room) {
+      this.sendError(ws, ErrorCode.RoomNotFound, 'Room not found');
+      return;
+    }
+
+    const participant = room.getParticipant(ws.participantSid);
+    if (!participant) {
+      this.sendError(ws, ErrorCode.InvalidRequest, 'Participant not found');
+      return;
+    }
+
+    try {
+      const { direction } = message;
+
+      // Create WebRTC transport
+      const transport = await room.createWebRtcTransport({
+        enableUdp: true,
+        enableTcp: true,
+        preferUdp: true,
+        listenIps: [
+          {
+            ip: '0.0.0.0',
+            announcedIp: process.env.ANNOUNCED_IP || '127.0.0.1',
+          },
+        ],
+        initialAvailableOutgoingBitrate: 1000000,
+      });
+
+      // Store transport
+      participant.addTransport(transport.id, transport);
+
+      // Send transport info to client
+      this.send(ws, {
+        type: 'transport_created',
+        id: transport.id,
+        iceParameters: transport.iceParameters,
+        iceCandidates: transport.iceCandidates,
+        dtlsParameters: transport.dtlsParameters,
+        direction,
+      });
+
+      console.log(`WebRTC transport created for participant ${participant.identity}`);
+    } catch (error) {
+      console.error('Failed to create WebRTC transport:', error);
+      this.sendError(ws, ErrorCode.Unknown, 'Failed to create transport');
+    }
+  }
+
+  /**
+   * Handle connect WebRTC transport
+   */
+  private async handleConnectWebRtcTransport(ws: WebSocketConnection, message: any): Promise<void> {
+    if (!ws.roomSid || !ws.participantSid) {
+      return;
+    }
+
+    const room = this.roomManager.getRoom(ws.roomSid);
+    if (!room) {
+      return;
+    }
+
+    const participant = room.getParticipant(ws.participantSid);
+    if (!participant) {
+      return;
+    }
+
+    const { transportId, dtlsParameters } = message;
+    const transport = participant.getTransport(transportId);
+
+    if (transport) {
+      await transport.connect({ dtlsParameters });
+      console.log(`WebRTC transport connected: ${transportId}`);
+    }
+  }
+
+  /**
    * Handle publish track
    */
-  private async handlePublish(_ws: WebSocketConnection, message: any): Promise<void> {
-    // TODO: Implement track publishing
-    console.log('Publish track:', message);
+  private async handlePublish(ws: WebSocketConnection, message: any): Promise<void> {
+    if (!ws.roomSid || !ws.participantSid) {
+      this.sendError(ws, ErrorCode.InvalidRequest, 'Not joined to room');
+      return;
+    }
+
+    const room = this.roomManager.getRoom(ws.roomSid);
+    if (!room) {
+      this.sendError(ws, ErrorCode.RoomNotFound, 'Room not found');
+      return;
+    }
+
+    const participant = room.getParticipant(ws.participantSid);
+    if (!participant) {
+      this.sendError(ws, ErrorCode.InvalidRequest, 'Participant not found');
+      return;
+    }
+
+    try {
+      const { transportId, kind, rtpParameters, appData } = message;
+      const transport = participant.getTransport(transportId);
+
+      if (!transport) {
+        this.sendError(ws, ErrorCode.InvalidRequest, 'Transport not found');
+        return;
+      }
+
+      // Create producer
+      const producer = await transport.produce({
+        kind,
+        rtpParameters,
+        appData,
+      });
+
+      // Add producer to participant
+      const track = participant.addProducer(
+        producer.id,
+        producer,
+        kind,
+        appData?.source || (kind === 'audio' ? 'microphone' : 'camera')
+      );
+
+      // Notify other participants
+      this.broadcastToRoom(
+        room,
+        {
+          type: 'track_published',
+          participantSid: participant.sid,
+          track: track.getInfo(),
+        },
+        ws.socketId
+      );
+
+      // Send producer ID to client
+      this.send(ws, {
+        type: 'track_published',
+        id: producer.id,
+        trackSid: track.sid,
+      });
+
+      console.log(`Track published: ${track.sid} by ${participant.identity}`);
+    } catch (error) {
+      console.error('Failed to publish track:', error);
+      this.sendError(ws, ErrorCode.Unknown, 'Failed to publish track');
+    }
   }
 
   /**
    * Handle unpublish track
    */
-  private async handleUnpublish(_ws: WebSocketConnection, message: any): Promise<void> {
-    // TODO: Implement track unpublishing
-    console.log('Unpublish track:', message);
+  private async handleUnpublish(ws: WebSocketConnection, message: any): Promise<void> {
+    if (!ws.roomSid || !ws.participantSid) {
+      return;
+    }
+
+    const room = this.roomManager.getRoom(ws.roomSid);
+    if (!room) {
+      return;
+    }
+
+    const participant = room.getParticipant(ws.participantSid);
+    if (!participant) {
+      return;
+    }
+
+    try {
+      const { producerId, trackSid } = message;
+
+      // Remove producer
+      participant.removeProducer(producerId);
+
+      // Notify other participants
+      this.broadcastToRoom(
+        room,
+        {
+          type: 'track_unpublished',
+          participantSid: participant.sid,
+          trackSid,
+        },
+        ws.socketId
+      );
+
+      console.log(`Track unpublished: ${trackSid}`);
+    } catch (error) {
+      console.error('Failed to unpublish track:', error);
+    }
   }
 
   /**
    * Handle subscribe to track
    */
-  private async handleSubscribe(_ws: WebSocketConnection, message: any): Promise<void> {
-    // TODO: Implement track subscription
-    console.log('Subscribe to track:', message);
+  private async handleSubscribe(ws: WebSocketConnection, message: any): Promise<void> {
+    if (!ws.roomSid || !ws.participantSid) {
+      this.sendError(ws, ErrorCode.InvalidRequest, 'Not joined to room');
+      return;
+    }
+
+    const room = this.roomManager.getRoom(ws.roomSid);
+    if (!room) {
+      this.sendError(ws, ErrorCode.RoomNotFound, 'Room not found');
+      return;
+    }
+
+    const participant = room.getParticipant(ws.participantSid);
+    if (!participant) {
+      this.sendError(ws, ErrorCode.InvalidRequest, 'Participant not found');
+      return;
+    }
+
+    try {
+      const { transportId, producerId, rtpCapabilities } = message;
+      const transport = participant.getTransport(transportId);
+
+      if (!transport) {
+        this.sendError(ws, ErrorCode.InvalidRequest, 'Transport not found');
+        return;
+      }
+
+      // Create consumer
+      const consumer = await transport.consume({
+        producerId,
+        rtpCapabilities,
+        paused: true,
+      });
+
+      // Add consumer to participant
+      participant.addConsumer(consumer.id, consumer);
+
+      // Send consumer info to client
+      this.send(ws, {
+        type: 'track_subscribed',
+        id: consumer.id,
+        producerId,
+        kind: consumer.kind,
+        rtpParameters: consumer.rtpParameters,
+        trackSid: producerId,
+      });
+
+      console.log(`Track subscribed: ${producerId} by ${participant.identity}`);
+    } catch (error) {
+      console.error('Failed to subscribe to track:', error);
+      this.sendError(ws, ErrorCode.Unknown, 'Failed to subscribe to track');
+    }
   }
 
   /**
    * Handle unsubscribe from track
    */
-  private async handleUnsubscribe(_ws: WebSocketConnection, message: any): Promise<void> {
-    // TODO: Implement track unsubscription
-    console.log('Unsubscribe from track:', message);
+  private async handleUnsubscribe(ws: WebSocketConnection, message: any): Promise<void> {
+    if (!ws.roomSid || !ws.participantSid) {
+      return;
+    }
+
+    const room = this.roomManager.getRoom(ws.roomSid);
+    if (!room) {
+      return;
+    }
+
+    const participant = room.getParticipant(ws.participantSid);
+    if (!participant) {
+      return;
+    }
+
+    try {
+      const { consumerId } = message;
+
+      // Remove consumer
+      participant.removeConsumer(consumerId);
+
+      console.log(`Track unsubscribed: ${consumerId}`);
+    } catch (error) {
+      console.error('Failed to unsubscribe from track:', error);
+    }
+  }
+
+  /**
+   * Handle resume consumer
+   */
+  private async handleResumeConsumer(ws: WebSocketConnection, message: any): Promise<void> {
+    if (!ws.roomSid || !ws.participantSid) {
+      return;
+    }
+
+    const room = this.roomManager.getRoom(ws.roomSid);
+    if (!room) {
+      return;
+    }
+
+    const participant = room.getParticipant(ws.participantSid);
+    if (!participant) {
+      return;
+    }
+
+    try {
+      const { consumerId } = message;
+      const consumer = participant.getConsumer(consumerId);
+
+      if (consumer) {
+        await consumer.resume();
+        console.log(`Consumer resumed: ${consumerId}`);
+      }
+    } catch (error) {
+      console.error('Failed to resume consumer:', error);
+    }
   }
 
   /**
    * Handle mute/unmute track
    */
-  private async handleMute(_ws: WebSocketConnection, message: any): Promise<void> {
-    // TODO: Implement track muting
-    console.log('Mute track:', message);
+  private async handleMute(ws: WebSocketConnection, message: any): Promise<void> {
+    if (!ws.roomSid || !ws.participantSid) {
+      return;
+    }
+
+    const room = this.roomManager.getRoom(ws.roomSid);
+    if (!room) {
+      return;
+    }
+
+    const participant = room.getParticipant(ws.participantSid);
+    if (!participant) {
+      return;
+    }
+
+    try {
+      const { trackSid, muted } = message;
+
+      if (muted) {
+        participant.muteTrack(trackSid);
+      } else {
+        participant.unmuteTrack(trackSid);
+      }
+
+      // Notify other participants
+      this.broadcastToRoom(
+        room,
+        {
+          type: 'track_muted',
+          participantSid: participant.sid,
+          trackSid,
+          muted,
+        },
+        ws.socketId
+      );
+
+      console.log(`Track ${trackSid} ${muted ? 'muted' : 'unmuted'}`);
+    } catch (error) {
+      console.error('Failed to mute track:', error);
+    }
   }
 
   /**

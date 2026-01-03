@@ -2,7 +2,7 @@
  * RoomClient - Main client class for connecting to a mediasoup room
  */
 
-import type { RoomInfo, ParticipantInfo } from '@mediasoup-lib/shared';
+import type { RoomInfo, ParticipantInfo, TrackSource } from '@mediasoup-lib/shared';
 import type {
   RoomClientOptions,
   RoomEvents,
@@ -16,6 +16,11 @@ import { ConnectionState } from '@mediasoup-lib/shared';
 import { LocalParticipantImpl } from './LocalParticipant';
 import { RemoteParticipantImpl } from './Participant';
 import { RemoteTrack as RemoteTrackImpl } from './RemoteTrack';
+import { LocalTrack as LocalTrackImpl } from './LocalTrack';
+import { LocalTrackPublicationImpl } from './TrackPublication';
+import { MediaManager } from '../media';
+import { WebRTCManager } from '../webrtc/WebRTCManager';
+import type { types } from 'mediasoup-client';
 
 /**
  * RoomClient - Main client class for connecting to a mediasoup room
@@ -31,12 +36,21 @@ export class RoomClient {
   private roomInfo: RoomInfo | null = null;
   private localParticipant: LocalParticipantImpl | null = null;
   private participants: Map<string, RemoteParticipantImpl> = new Map();
+  private rtpCapabilities: any = null;
 
   private listeners: Map<keyof RoomEvents, Set<(data: unknown) => void>> = new Map();
   private pendingMessages: unknown[] = [];
 
-  private sendTransport: any = null;
-  private recvTransport: any = null;
+  // WebRTC and Media managers (internal)
+  private mediaManager: MediaManager | null = null;
+  private webRTCManager: WebRTCManager | null = null;
+  private isWebRTCInitialized = false;
+
+  // Track state
+  private localAudioTrack: MediaStreamTrack | null = null;
+  private localVideoTrack: MediaStreamTrack | null = null;
+  private localAudioProducer: types.Producer | null = null;
+  private localVideoProducer: types.Producer | null = null;
 
   constructor(options: RoomClientOptions) {
     this.options = options;
@@ -68,20 +82,25 @@ export class RoomClient {
    * Disconnect from the room
    */
   async disconnect(): Promise<void> {
+    // Stop local tracks
+    this.stopLocalTracks();
+
+    // Close WebRTC manager
+    if (this.webRTCManager) {
+      this.webRTCManager.close();
+      this.webRTCManager = null;
+    }
+
+    // Stop media manager
+    if (this.mediaManager) {
+      this.mediaManager.stopAllTracks();
+      this.mediaManager = null;
+    }
+
     // Close WebSocket
     if (this.ws) {
       this.ws.close();
       this.ws = null;
-    }
-
-    // Clean up transports
-    if (this.sendTransport) {
-      await this.sendTransport.close();
-      this.sendTransport = null;
-    }
-    if (this.recvTransport) {
-      await this.recvTransport.close();
-      this.recvTransport = null;
     }
 
     // Clean up participants
@@ -94,8 +113,209 @@ export class RoomClient {
       this.localParticipant = null;
     }
 
+    this.isWebRTCInitialized = false;
+
     this.emit('disconnected');
     this.emit('connection-state-changed', ConnectionState.Disconnected);
+  }
+
+  /**
+   * Enable camera (video)
+   */
+  async enableCamera(): Promise<void> {
+    if (!this.isWebRTCInitialized) {
+      await this.initializeWebRTC();
+    }
+
+    if (!this.mediaManager || !this.webRTCManager || !this.localParticipant) {
+      throw new Error('WebRTC not initialized');
+    }
+
+    // Create video track
+    const videoTrack = await this.mediaManager.createVideoTrack();
+    this.localVideoTrack = (videoTrack as any).mediaTrack;
+
+    if (!this.localVideoTrack) {
+      throw new Error('Failed to create video track');
+    }
+
+    // Publish via WebRTC manager first to get producer ID
+    this.localVideoProducer = await this.webRTCManager.publishTrack(this.localVideoTrack, {
+      source: 'camera',
+    });
+
+    // Use producer ID as the track SID for consistency
+    const trackSid = this.localVideoProducer.id;
+
+    // Create LocalTrack object
+    const localTrack = new LocalTrackImpl(
+      {
+        sid: trackSid,
+        kind: 'video' as any,
+        source: 'camera' as TrackSource,
+        muted: false,
+      },
+      this.localVideoTrack
+    );
+
+    // Create publication with producer ID as SID
+    const publication = new LocalTrackPublicationImpl(
+      {
+        sid: trackSid,
+        kind: 'video' as any,
+        source: 'camera' as TrackSource,
+        muted: false,
+        simulcast: false,
+      },
+      'camera',
+      localTrack
+    );
+
+    // Add to local participant
+    (this.localParticipant as any).tracks.set(publication.sid, publication);
+
+    console.log('Camera enabled, track SID:', trackSid);
+  }
+
+  /**
+   * Disable camera (video)
+   */
+  async disableCamera(): Promise<void> {
+    if (this.localVideoTrack) {
+      this.localVideoTrack.stop();
+      this.localVideoTrack = null;
+    }
+
+    if (this.localVideoProducer) {
+      await this.webRTCManager?.unpublishTrack(this.localVideoProducer.id);
+      this.localVideoProducer = null;
+    }
+
+    console.log('Camera disabled');
+  }
+
+  /**
+   * Enable microphone (audio)
+   */
+  async enableMicrophone(): Promise<void> {
+    if (!this.isWebRTCInitialized) {
+      await this.initializeWebRTC();
+    }
+
+    if (!this.mediaManager || !this.webRTCManager || !this.localParticipant) {
+      throw new Error('WebRTC not initialized');
+    }
+
+    // Create audio track
+    const audioTrack = await this.mediaManager.createAudioTrack();
+    this.localAudioTrack = (audioTrack as any).mediaTrack;
+
+    if (!this.localAudioTrack) {
+      throw new Error('Failed to create audio track');
+    }
+
+    // Publish via WebRTC manager first to get producer ID
+    this.localAudioProducer = await this.webRTCManager.publishTrack(this.localAudioTrack, {
+      source: 'microphone',
+    });
+
+    // Use producer ID as the track SID for consistency
+    const trackSid = this.localAudioProducer.id;
+
+    // Create LocalTrack object
+    const localTrack = new LocalTrackImpl(
+      {
+        sid: trackSid,
+        kind: 'audio' as any,
+        source: 'microphone' as TrackSource,
+        muted: false,
+      },
+      this.localAudioTrack
+    );
+
+    // Create publication with producer ID as SID
+    const publication = new LocalTrackPublicationImpl(
+      {
+        sid: trackSid,
+        kind: 'audio' as any,
+        source: 'microphone' as TrackSource,
+        muted: false,
+        simulcast: false,
+      },
+      'microphone',
+      localTrack
+    );
+
+    // Add to local participant
+    (this.localParticipant as any).tracks.set(publication.sid, publication);
+
+    console.log('Microphone enabled, track SID:', trackSid);
+  }
+
+  /**
+   * Disable microphone (audio)
+   */
+  async disableMicrophone(): Promise<void> {
+    if (this.localAudioTrack) {
+      this.localAudioTrack.stop();
+      this.localAudioTrack = null;
+    }
+
+    if (this.localAudioProducer) {
+      await this.webRTCManager?.unpublishTrack(this.localAudioProducer.id);
+      this.localAudioProducer = null;
+    }
+
+    console.log('Microphone disabled');
+  }
+
+  /**
+   * Initialize WebRTC (internal)
+   */
+  private async initializeWebRTC(): Promise<void> {
+    if (this.isWebRTCInitialized) {
+      return;
+    }
+
+    if (!this.rtpCapabilities) {
+      throw new Error('RTP capabilities not available. Wait for connection.');
+    }
+
+    // Initialize media manager
+    this.mediaManager = new MediaManager();
+    await this.mediaManager.initialize();
+
+    // Initialize WebRTC manager
+    this.webRTCManager = new WebRTCManager(this);
+    await this.webRTCManager.initialize(this.rtpCapabilities);
+
+    // Create send and receive transports
+    await this.webRTCManager.createSendTransport();
+    await this.webRTCManager.createRecvTransport();
+
+    this.isWebRTCInitialized = true;
+    console.log('WebRTC initialized');
+  }
+
+  /**
+   * Stop local tracks
+   */
+  private stopLocalTracks(): void {
+    if (this.localAudioTrack) {
+      this.localAudioTrack.stop();
+      this.localAudioTrack = null;
+    }
+    if (this.localVideoTrack) {
+      this.localVideoTrack.stop();
+      this.localVideoTrack = null;
+    }
+    this.localAudioProducer = null;
+    this.localVideoProducer = null;
+
+    // Clear local participant tracks
+    if (this.localParticipant) {
+      (this.localParticipant as any).tracks.clear();
+    }
   }
 
   /**
@@ -138,21 +358,60 @@ export class RoomClient {
    */
   async subscribeToTrack(
     sid: string,
-    options?: TrackSubscribeOptions
+    _options?: TrackSubscribeOptions
   ): Promise<RemoteTrack | null> {
+    console.log('subscribeToTrack called with sid:', sid);
     const publication = this.findTrackPublication(sid);
     if (!publication) {
+      console.error(`Track ${sid} not found in publications`);
       throw new Error(`Track ${sid} not found`);
     }
 
-    // Send subscribe message
-    this.send({
-      type: 'subscribe',
-      trackSid: sid,
-      options,
+    if (!this.webRTCManager) {
+      throw new Error('WebRTC not initialized');
+    }
+
+    // Subscribe via WebRTC manager
+    const consumer = await this.webRTCManager.subscribeToTrack(sid);
+    console.log('Consumer created:', consumer.id, 'track:', consumer.track, 'kind:', consumer.kind);
+
+    // Check if consumer track exists
+    if (!consumer.track) {
+      console.error('Consumer track is null or undefined!', consumer.id);
+      return null;
+    }
+
+    // Create remote track from consumer - use producerId (sid) as track SID, not consumer ID
+    const track = new RemoteTrackImpl(
+      {
+        sid: sid, // Use producerId as SID to match publication
+        kind: consumer.kind as any,
+        source: publication.source as any,
+        muted: false,
+      },
+      consumer.track as MediaStreamTrack
+    );
+
+    console.log(
+      'RemoteTrack created:',
+      track.sid,
+      'mediaTrack:',
+      track.mediaTrack,
+      'kind:',
+      track.kind
+    );
+
+    (publication as any).setTrack(track);
+    console.log('Track set on publication:', publication.sid, 'hasTrack:', !!publication.track);
+
+    track.emitSubscribed();
+    this.emit('track-subscribed', {
+      track,
+      publication,
+      participant: this.getParticipantFromPublication(publication),
     });
 
-    return publication.track;
+    return track;
   }
 
   /**
@@ -164,11 +423,17 @@ export class RoomClient {
       throw new Error(`Track ${sid} not found`);
     }
 
-    // Send unsubscribe message
-    this.send({
-      type: 'unsubscribe',
-      trackSid: sid,
-    });
+    // Unsubscribe via WebRTC manager
+    const track = publication.track;
+    (publication as any).clearTrack();
+    if (track) {
+      (track as RemoteTrackImpl).emitUnsubscribed();
+      this.emit('track-unsubscribed', {
+        track,
+        publication,
+        participant: this.getParticipantFromPublication(publication),
+      });
+    }
   }
 
   /**
@@ -297,40 +562,47 @@ export class RoomClient {
    * Handle incoming WebSocket message
    */
   private handleMessage(message: any): void {
+    // Emit message event for WebRTC signaling
+    this.emit('message', message);
+
     switch (message.type) {
       case 'joined':
         this.handleJoined(message);
         break;
 
-      case 'participant-joined':
+      case 'participant_joined':
         this.handleParticipantJoined(message);
         break;
 
-      case 'participant-left':
+      case 'participant_left':
         this.handleParticipantLeft(message);
         break;
 
-      case 'track-published':
+      case 'transport_created':
+        // Handled by WebRTCManager
+        break;
+
+      case 'track_published':
         this.handleTrackPublished(message);
         break;
 
-      case 'track-unpublished':
+      case 'track_unpublished':
         this.handleTrackUnpublished(message);
         break;
 
-      case 'track-subscribed':
+      case 'track_subscribed':
         this.handleTrackSubscribed(message);
         break;
 
-      case 'track-unsubscribed':
+      case 'track_unsubscribed':
         this.handleTrackUnsubscribed(message);
         break;
 
-      case 'track-muted':
+      case 'track_muted':
         this.handleTrackMuted(message);
         break;
 
-      case 'track-unmuted':
+      case 'track_unmuted':
         this.handleTrackUnmuted(message);
         break;
 
@@ -350,8 +622,9 @@ export class RoomClient {
   /**
    * Handle joined message
    */
-  private handleJoined(message: any): void {
+  private async handleJoined(message: any): Promise<void> {
     this.roomInfo = message.room;
+    this.rtpCapabilities = message.rtpCapabilities;
 
     // Create local participant
     this.localParticipant = new LocalParticipantImpl(message.participant);
@@ -363,6 +636,12 @@ export class RoomClient {
       });
     });
 
+    // Set camera/microphone callbacks
+    this.localParticipant.setEnableCameraCallback(() => this.enableCamera());
+    this.localParticipant.setDisableCameraCallback(() => this.disableCamera());
+    this.localParticipant.setEnableMicrophoneCallback(() => this.enableMicrophone());
+    this.localParticipant.setDisableMicrophoneCallback(() => this.disableMicrophone());
+
     this.emit('local-participant-joined', this.localParticipant);
 
     // Add existing participants
@@ -371,22 +650,27 @@ export class RoomClient {
       participant.setSubscribeCallback(
         async (sid: string, subscribed: boolean, options?: TrackSubscribeOptions) => {
           if (subscribed) {
-            this.send({
-              type: 'subscribe',
-              trackSid: sid,
-              options,
-            });
+            this.subscribeToTrack(sid, options);
           } else {
-            this.send({
-              type: 'unsubscribe',
-              trackSid: sid,
-            });
+            this.unsubscribeFromTrack(sid);
           }
         }
       );
       this.participants.set(info.sid, participant);
       this.emit('participant-joined', participant);
     });
+
+    // Auto-subscribe to all existing tracks if enabled
+    if (this.options.autoSubscribe !== false) {
+      // Initialize WebRTC first
+      try {
+        await this.initializeWebRTC();
+        await this.subscribeToAllTracks();
+        console.log('Auto-subscribed to all existing tracks');
+      } catch (error) {
+        console.error('Failed to auto-subscribe to existing tracks:', error);
+      }
+    }
   }
 
   /**
@@ -397,16 +681,9 @@ export class RoomClient {
     participant.setSubscribeCallback(
       async (sid: string, subscribed: boolean, options?: TrackSubscribeOptions) => {
         if (subscribed) {
-          this.send({
-            type: 'subscribe',
-            trackSid: sid,
-            options,
-          });
+          this.subscribeToTrack(sid, options);
         } else {
-          this.send({
-            type: 'unsubscribe',
-            trackSid: sid,
-          });
+          this.unsubscribeFromTrack(sid);
         }
       }
     );
@@ -429,10 +706,32 @@ export class RoomClient {
   /**
    * Handle track published message
    */
-  private handleTrackPublished(message: any): void {
+  private async handleTrackPublished(message: any): Promise<void> {
     const participant = this.participants.get(message.participantSid);
     if (participant) {
-      participant.updateInfo(message.participant);
+      // Update participant with new track
+      const info = participant.getInfo();
+      info.tracks.push(message.track);
+      participant.updateInfo(info);
+
+      // Emit track published event
+      this.emit('track-published', { publication: message.track, participant });
+
+      // Auto-subscribe if enabled
+      if (this.options.autoSubscribe !== false) {
+        // Initialize WebRTC if not already initialized
+        if (!this.isWebRTCInitialized) {
+          await this.initializeWebRTC();
+        }
+
+        // Subscribe to the new track
+        try {
+          await this.subscribeToTrack(message.track.sid);
+          console.log(`Auto-subscribed to track ${message.track.sid}`);
+        } catch (error) {
+          console.error('Failed to auto-subscribe to track:', error);
+        }
+      }
     }
   }
 
@@ -442,7 +741,21 @@ export class RoomClient {
   private handleTrackUnpublished(message: any): void {
     const participant = this.participants.get(message.participantSid);
     if (participant) {
-      participant.updateInfo(message.participant);
+      // Get the publication before removing it
+      const publication = participant.getTrack(message.trackSid);
+
+      // Remove the track from participant's tracks map
+      (participant as any).tracks.delete(message.trackSid);
+
+      // Emit track-unpublished event
+      if (publication) {
+        (publication as any).clearTrack();
+        this.emit('track-unpublished', { publication, participant });
+      }
+
+      console.log(
+        `Track unpublished: ${message.trackSid} from participant ${participant.identity}`
+      );
     }
   }
 
@@ -450,16 +763,8 @@ export class RoomClient {
    * Handle track subscribed message
    */
   private handleTrackSubscribed(message: any): void {
-    const participant = this.participants.get(message.participantSid);
-    if (participant) {
-      const publication = participant.getTrack(message.trackSid);
-      if (publication && message.track) {
-        const track = new RemoteTrackImpl(message.track, message.mediaTrack);
-        (publication as any).setTrack(track);
-        track.emitSubscribed();
-        this.emit('track-subscribed', { track, publication, participant });
-      }
-    }
+    // This is handled by subscribeToTrack method
+    console.log('Track subscribed:', message);
   }
 
   /**
@@ -526,9 +831,9 @@ export class RoomClient {
   }
 
   /**
-   * Send message via WebSocket
+   * Send message via WebSocket (public for WebRTC signaling)
    */
-  private send(message: unknown): void {
+  public send(message: unknown): void {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(message));
     } else {
@@ -550,6 +855,13 @@ export class RoomClient {
   }
 
   /**
+   * Get RTP capabilities
+   */
+  public getRtpCapabilities(): any {
+    return this.rtpCapabilities;
+  }
+
+  /**
    * Emit event
    */
   private emit<K extends keyof RoomEvents>(event: K, data?: unknown): void {
@@ -563,5 +875,19 @@ export class RoomClient {
         }
       });
     }
+  }
+
+  /**
+   * Get participant from publication
+   */
+  private getParticipantFromPublication(
+    publication: RemoteTrackPublication
+  ): RemoteParticipant | null {
+    for (const participant of this.participants.values()) {
+      if (participant.getTrack(publication.sid)) {
+        return participant;
+      }
+    }
+    return null;
   }
 }

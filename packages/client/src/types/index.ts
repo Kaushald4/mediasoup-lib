@@ -277,6 +277,11 @@ export interface RoomEvents {
    * Room metadata updated
    */
   'metadata-updated': (metadata: Record<string, unknown>) => void;
+
+  /**
+   * Server message received (for WebRTC signaling)
+   */
+  message: (data: unknown) => void;
 }
 
 /**
@@ -297,6 +302,16 @@ export interface ParticipantEvents {
    * Track unpublished
    */
   'track-unpublished': (publication: TrackPublication) => void;
+
+  /**
+   * Track subscribed (track object is now available)
+   */
+  'track-subscribed': (publication: TrackPublication) => void;
+
+  /**
+   * Track unsubscribed
+   */
+  'track-unsubscribed': (publication: TrackPublication) => void;
 
   /**
    * Track muted
@@ -608,6 +623,26 @@ export interface LocalParticipant extends Omit<
    * Publish data
    */
   publishData(data: unknown, kind?: 'reliable' | 'lossy'): Promise<void>;
+
+  /**
+   * Enable camera (video)
+   */
+  enableCamera(): Promise<void>;
+
+  /**
+   * Disable camera (video)
+   */
+  disableCamera(): Promise<void>;
+
+  /**
+   * Enable microphone (audio)
+   */
+  enableMicrophone(): Promise<void>;
+
+  /**
+   * Disable microphone (audio)
+   */
+  disableMicrophone(): Promise<void>;
 
   /**
    * Add event listener

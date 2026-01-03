@@ -26,10 +26,29 @@ export interface LeaveMessage {
 }
 
 /**
+ * Create WebRTC transport message
+ */
+export interface CreateTransportMessage {
+  type: 'create_transport';
+  direction: 'send' | 'recv';
+  rtpCapabilities: RtpCapabilities;
+}
+
+/**
+ * Connect WebRTC transport message
+ */
+export interface ConnectTransportMessage {
+  type: 'connect_transport';
+  transportId: string;
+  dtlsParameters: DtlsParameters;
+}
+
+/**
  * Publish track message
  */
 export interface PublishMessage {
   type: 'publish';
+  transportId: string;
   kind: TrackKind;
   rtpParameters: RtpParameters;
   appData?: Record<string, unknown>;
@@ -40,6 +59,7 @@ export interface PublishMessage {
  */
 export interface UnpublishMessage {
   type: 'unpublish';
+  producerId: string;
   trackSid: string;
 }
 
@@ -48,7 +68,8 @@ export interface UnpublishMessage {
  */
 export interface SubscribeMessage {
   type: 'subscribe';
-  trackSid: string;
+  transportId: string;
+  producerId: string;
   rtpCapabilities: RtpCapabilities;
 }
 
@@ -57,7 +78,15 @@ export interface SubscribeMessage {
  */
 export interface UnsubscribeMessage {
   type: 'unsubscribe';
-  trackSid: string;
+  consumerId: string;
+}
+
+/**
+ * Resume consumer message
+ */
+export interface ResumeConsumerMessage {
+  type: 'resume_consumer';
+  consumerId: string;
 }
 
 /**
@@ -84,10 +113,13 @@ export interface DataMessage {
 export type ClientMessage =
   | JoinMessage
   | LeaveMessage
+  | CreateTransportMessage
+  | ConnectTransportMessage
   | PublishMessage
   | UnpublishMessage
   | SubscribeMessage
   | UnsubscribeMessage
+  | ResumeConsumerMessage
   | MuteMessage
   | DataMessage;
 
@@ -103,6 +135,7 @@ export interface JoinedMessage {
   room: RoomInfo;
   participant: ParticipantInfo;
   otherParticipants: ParticipantInfo[];
+  rtpCapabilities?: RtpCapabilities;
 }
 
 /**
@@ -122,12 +155,33 @@ export interface ParticipantLeftMessage {
 }
 
 /**
- * Track published message
+ * Transport created message
+ */
+export interface TransportCreatedMessage {
+  type: 'transport_created';
+  id: string;
+  iceParameters: IceParameters;
+  iceCandidates: IceCandidate[];
+  dtlsParameters: DtlsParameters;
+  direction: 'send' | 'recv';
+}
+
+/**
+ * Track published message (notification to others)
  */
 export interface TrackPublishedMessage {
   type: 'track_published';
   participantSid: string;
   track: TrackInfo;
+}
+
+/**
+ * Track published response (to publisher)
+ */
+export interface TrackPublishResponse {
+  type: 'track_published';
+  id: string;
+  trackSid: string;
 }
 
 /**
@@ -144,8 +198,11 @@ export interface TrackUnpublishedMessage {
  */
 export interface TrackSubscribedMessage {
   type: 'track_subscribed';
-  track: TrackInfo;
+  id: string;
+  producerId: string;
+  kind: string; // Allow 'audio' | 'video' from mediasoup
   rtpParameters: RtpParameters;
+  trackSid: string;
 }
 
 /**
@@ -161,6 +218,7 @@ export interface TrackUnsubscribedMessage {
  */
 export interface TrackMutedMessage {
   type: 'track_muted';
+  participantSid: string;
   trackSid: string;
   muted: boolean;
 }
@@ -187,9 +245,11 @@ export interface ErrorMessage {
  */
 export type ServerMessage =
   | JoinedMessage
+  | TransportCreatedMessage
   | ParticipantJoinedMessage
   | ParticipantLeftMessage
   | TrackPublishedMessage
+  | TrackPublishResponse
   | TrackUnpublishedMessage
   | TrackSubscribedMessage
   | TrackUnsubscribedMessage
@@ -202,13 +262,13 @@ export type ServerMessage =
 // ============================================================================
 
 /**
- * RTP parameters (simplified)
+ * RTP parameters (simplified) - compatible with mediasoup types
  */
 export interface RtpParameters {
-  codecs: RtpCodecParameters[];
-  headerExtensions: RtpHeaderExtensionParameters[];
-  encodings: RtpEncodingParameters[];
-  rtcp: RtcpParameters;
+  codecs?: RtpCodecParameters[];
+  headerExtensions?: RtpHeaderExtensionParameters[];
+  encodings?: RtpEncodingParameters[];
+  rtcp?: RtcpParameters;
 }
 
 /**
@@ -297,4 +357,42 @@ export interface RtpHeaderExtension {
 export interface RtcpFeedback {
   type: string;
   parameter?: string;
+}
+
+/**
+ * ICE parameters
+ */
+export interface IceParameters {
+  usernameFragment: string;
+  password: string;
+  iceLite?: boolean;
+}
+
+/**
+ * ICE candidate
+ */
+export interface IceCandidate {
+  foundation: string;
+  priority: number;
+  ip: string;
+  protocol: 'udp' | 'tcp';
+  port: number;
+  type: 'host';
+  tcpType?: 'passive';
+}
+
+/**
+ * DTLS parameters
+ */
+export interface DtlsParameters {
+  role?: 'auto' | 'client' | 'server';
+  fingerprints: DtlsFingerprint[];
+}
+
+/**
+ * DTLS fingerprint
+ */
+export interface DtlsFingerprint {
+  algorithm: string;
+  value: string;
 }
